@@ -7,6 +7,7 @@ import { Employee, Assignment, WorkSubmission } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SubmissionStatusBadge } from "@/components/ui/status-badge"
+import { CreateResponsibilityDialog } from "@/components/manager/create-responsibility-dialog"
 import Link from "next/link"
 import {
     Users,
@@ -16,6 +17,8 @@ import {
     CheckCircle,
     XCircle,
     ArrowRight,
+    Plus,
+    Briefcase,
 } from "lucide-react"
 
 interface DashboardStats {
@@ -82,11 +85,14 @@ export default function ManagerDashboardPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Manager Dashboard</h1>
-                <p className="text-muted-foreground">
-                    Welcome back, {user?.name || 'Manager'}. Manage your team's work here.
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Manager Dashboard</h1>
+                    <p className="text-muted-foreground">
+                        Welcome back, {user?.name || 'Manager'}. Manage your team's work here.
+                    </p>
+                </div>
+                <CreateResponsibilityDialog onSuccess={() => window.location.reload()} />
             </div>
 
             {/* Stats Cards */}
@@ -153,7 +159,7 @@ export default function ManagerDashboardPage() {
                     </div>
                     {stats.pendingVerifications > 0 && (
                         <Button asChild>
-                            <Link href="/manager/work-submissions">
+                            <Link href="/manager/submissions">
                                 View All <ArrowRight className="ml-2 h-4 w-4" />
                             </Link>
                         </Button>
@@ -186,7 +192,7 @@ export default function ManagerDashboardPage() {
                                     <div className="flex items-center gap-4">
                                         <SubmissionStatusBadge status={submission.status} />
                                         <Button variant="outline" size="sm" asChild>
-                                            <Link href={`/manager/work-submissions?id=${submission.id}`}>
+                                            <Link href={`/manager/submissions`}>
                                                 Review
                                             </Link>
                                         </Button>
@@ -199,7 +205,21 @@ export default function ManagerDashboardPage() {
             </Card>
 
             {/* Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    <Link href="/manager/submissions">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileCheck className="h-5 w-5" />
+                                Review Submissions
+                            </CardTitle>
+                            <CardDescription>
+                                Review and approve staff work submissions
+                            </CardDescription>
+                        </CardHeader>
+                    </Link>
+                </Card>
+
                 <Card className="cursor-pointer hover:shadow-md transition-shadow">
                     <Link href="/manager/assignments">
                         <CardHeader>
@@ -219,10 +239,10 @@ export default function ManagerDashboardPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Users className="h-5 w-5" />
-                                View Team
+                                My Staff
                             </CardTitle>
                             <CardDescription>
-                                See all staff members in your sub-department
+                                View staff members and their submissions
                             </CardDescription>
                         </CardHeader>
                     </Link>
@@ -232,11 +252,11 @@ export default function ManagerDashboardPage() {
                     <Link href="/manager/responsibilities">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <FileCheck className="h-5 w-5" />
+                                <Briefcase className="h-5 w-5" />
                                 Responsibilities
                             </CardTitle>
                             <CardDescription>
-                                View and manage work responsibilities
+                                Create and manage work responsibilities
                             </CardDescription>
                         </CardHeader>
                     </Link>

@@ -52,7 +52,7 @@ export default function AdminWorkSubmissionsPage() {
 
         if (searchQuery) {
             filtered = filtered.filter(s =>
-                s.employee?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                s.staff?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 s.assignment?.responsibility?.title?.toLowerCase().includes(searchQuery.toLowerCase())
             )
         }
@@ -140,7 +140,7 @@ export default function AdminWorkSubmissionsPage() {
                                         <TableCell className="font-medium">
                                             {submission.assignment?.responsibility?.title || 'N/A'}
                                         </TableCell>
-                                        <TableCell>{submission.employee?.name || 'Unknown'}</TableCell>
+                                        <TableCell>{submission.staff?.name || 'Unknown'}</TableCell>
                                         <TableCell>
                                             {new Date(submission.submittedAt).toLocaleDateString()}
                                         </TableCell>

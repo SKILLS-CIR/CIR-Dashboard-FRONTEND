@@ -113,21 +113,37 @@ export interface Responsibility {
   id: string
   title: string
   description?: string
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  cycle: string // YYYY-MM format
+  startDate?: string
+  endDate?: string
+  subDepartmentId: string
+  subDepartment?: SubDepartment
+  createdById?: string
+  createdBy?: Employee
+  isStaffCreated?: boolean
+  isActive?: boolean
   createdAt: string
   updatedAt: string
 }
 
+// Matches Prisma.ResponsibilityCreateInput structure
 export interface CreateResponsibilityDto {
   title: string
+  cycle: string // YYYY-MM format - REQUIRED
+  createdBy: { connect: { id: number } } // REQUIRED - connect to creator
+  subDepartment: { connect: { id: number } } // REQUIRED - connect to sub-department
   description?: string
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  startDate?: string // ISO date string
+  endDate?: string // ISO date string
+  isStaffCreated?: boolean
 }
 
 export interface UpdateResponsibilityDto {
   title?: string
   description?: string
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  cycle?: string
+  startDate?: string
+  endDate?: string
 }
 
 // ==================== Assignments ====================
@@ -135,29 +151,21 @@ export interface Assignment {
   id: string
   responsibilityId: string
   responsibility?: Responsibility
-  employeeId: string
-  employee?: Employee
-  assignedById: string
-  assignedBy?: Employee
-  dueDate?: string
-  notes?: string
+  staffId: string
+  staff?: Employee
   status: AssignmentStatus
-  createdAt: string
+  assignedAt: string
   updatedAt: string
 }
 
-export type AssignmentStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE'
+export type AssignmentStatus = 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED'
 
 export interface CreateAssignmentDto {
-  responsibilityId: string
-  employeeId: string
-  dueDate?: string
-  notes?: string
+  responsibility: { connect: { id: number } }
+  staff: { connect: { id: number } }
 }
 
 export interface UpdateAssignmentDto {
-  dueDate?: string
-  notes?: string
   status?: AssignmentStatus
 }
 
@@ -166,10 +174,15 @@ export interface WorkSubmission {
   id: string
   assignmentId: string
   assignment?: Assignment
-  employeeId: string
-  employee?: Employee
-  content: string
-  attachments?: string[]
+  staffId: string
+  staff?: Employee
+  hoursWorked?: number
+  workDate?: string
+  workProofType?: 'PDF' | 'IMAGE' | 'TEXT'
+  workProofUrl?: string
+  workProofText?: string
+  staffComment?: string
+  managerComment?: string
   status: SubmissionStatus
   submittedAt: string
   verifiedAt?: string
@@ -183,10 +196,16 @@ export interface WorkSubmission {
 
 export type SubmissionStatus = 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED'
 
+// Matches Prisma.WorkSubmissionCreateInput structure
 export interface CreateWorkSubmissionDto {
-  assignmentId: string
-  content: string
-  attachments?: string[]
+  assignment: { connect: { id: number } }
+  staff: { connect: { id: number } }
+  hoursWorked: number
+  workDate?: string // ISO date string, defaults to today
+  workProofType?: 'PDF' | 'IMAGE' | 'TEXT'
+  workProofUrl?: string
+  workProofText?: string
+  staffComment?: string
 }
 
 export interface UpdateWorkSubmissionDto {
@@ -197,6 +216,60 @@ export interface UpdateWorkSubmissionDto {
 export interface VerifySubmissionDto {
   status: 'VERIFIED' | 'REJECTED'
   rejectionReason?: string
+}
+
+// ==================== Daily Work Submission Types ====================
+export type DayStatus = 'NOT_SUBMITTED' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'PARTIAL'
+
+export interface DailyWorkEntry {
+  assignmentId: string
+  responsibilityId: string
+  responsibilityTitle: string
+  responsibilityDescription?: string
+  isStaffCreated: boolean
+  hoursWorked: number
+  workDescription: string
+  workProofType?: 'TEXT' | 'FILE' | 'URL'
+  workProofText?: string
+  workProofUrl?: string
+  submissionId?: string
+  submissionStatus?: SubmissionStatus
+  isSubmitted: boolean
+  isLocked: boolean
+}
+
+export interface DailySubmissionSummary {
+  date: string
+  status: DayStatus
+  totalHours: number
+  verifiedHours: number
+  pendingHours: number
+  rejectedCount: number
+  submissions: WorkSubmission[]
+  isLocked: boolean
+}
+
+export interface CalendarDayData {
+  date: string
+  status: DayStatus
+  totalHours: number
+  verifiedHours: number
+  isLocked: boolean
+  hasSubmissions: boolean
+}
+
+export interface CreateDailyWorkSubmissionDto {
+  assignmentId: number
+  hoursWorked: number
+  workProofType?: 'PDF' | 'IMAGE' | 'TEXT'
+  workProofUrl?: string
+  workProofText?: string
+  staffComment?: string
+}
+
+export interface CreateStaffResponsibilityDto {
+  title: string
+  description?: string
 }
 
 // ==================== Comments ====================

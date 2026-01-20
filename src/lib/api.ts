@@ -258,6 +258,13 @@ export const responsibilitiesApi = {
         fetchApi(`/responsibilities/${id}`, {
             method: 'DELETE',
         }),
+
+    // Daily workflow endpoints
+    getActiveToday: (): Promise<Responsibility[]> =>
+        fetchApi('/responsibilities/active/today'),
+
+    getActiveForDate: (date: string): Promise<Responsibility[]> =>
+        fetchApi(`/responsibilities/active/${date}`),
 }
 
 // ==================== Assignments API ====================
@@ -316,6 +323,25 @@ export const workSubmissionsApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    // Daily workflow endpoints
+    getToday: (): Promise<WorkSubmission[]> =>
+        fetchApi('/work-submission/today'),
+
+    getByDate: (date: string): Promise<WorkSubmission[]> =>
+        fetchApi(`/work-submission/daily/${date}`),
+
+    getDailyHours: (staffId: string, date: string): Promise<{ totalHours: number; verifiedHours: number; pendingHours: number }> =>
+        fetchApi(`/work-submission/daily-hours/${staffId}/${date}`),
+
+    getCalendarView: (staffId: string, startDate: string, endDate: string): Promise<{
+        date: string;
+        submissions: WorkSubmission[];
+        totalHours: number;
+        verifiedHours: number;
+        isLocked: boolean;
+    }[]> =>
+        fetchApi(`/work-submission/calendar/${staffId}?startDate=${startDate}&endDate=${endDate}`),
 }
 
 // ==================== Comments API ====================

@@ -44,10 +44,10 @@ export default function ManagerAssignmentsPage() {
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
 
-    // Form state
+    // Form state - NO due date (not in schema for assignments from manager)
     const [selectedResponsibility, setSelectedResponsibility] = useState("")
     const [selectedEmployee, setSelectedEmployee] = useState("")
-    const [dueDate, setDueDate] = useState("")
+    const [assignToAll, setAssignToAll] = useState(false)
     const [notes, setNotes] = useState("")
 
     useEffect(() => {
@@ -72,20 +72,33 @@ export default function ManagerAssignmentsPage() {
     }
 
     async function handleCreate() {
-        if (!selectedResponsibility || !selectedEmployee) {
-            toast.error("Please select a responsibility and employee")
+        if (!selectedResponsibility) {
+            toast.error("Please select a responsibility")
+            return
+        }
+        if (!assignToAll && !selectedEmployee) {
+            toast.error("Please select an employee or choose 'Assign to All'")
             return
         }
 
         setIsCreating(true)
         try {
-            await api.assignments.create({
-                responsibilityId: selectedResponsibility,
-                employeeId: selectedEmployee,
-                dueDate: dueDate || undefined,
-                notes: notes || undefined,
-            })
-            toast.success("Assignment created successfully")
+            if (assignToAll) {
+                // Create assignment for all staff members
+                for (const emp of staff) {
+                    await api.assignments.create({
+                        responsibility: { connect: { id: parseInt(selectedResponsibility) } },
+                        staff: { connect: { id: parseInt(emp.id) } },
+                    })
+                }
+                toast.success(`Assignment created for ${staff.length} staff members`)
+            } else {
+                await api.assignments.create({
+                    responsibility: { connect: { id: parseInt(selectedResponsibility) } },
+                    staff: { connect: { id: parseInt(selectedEmployee) } },
+                })
+                toast.success("Assignment created successfully")
+            }
             setCreateDialogOpen(false)
             resetForm()
             fetchData()
@@ -100,7 +113,7 @@ export default function ManagerAssignmentsPage() {
     function resetForm() {
         setSelectedResponsibility("")
         setSelectedEmployee("")
-        setDueDate("")
+        setAssignToAll(false)
         setNotes("")
     }
 
@@ -165,33 +178,43 @@ export default function ManagerAssignmentsPage() {
                                 </Select>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Assign To *</Label>
-                                <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a staff member" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {staff.map((emp) => (
-                                            <SelectItem key={emp.id} value={emp.id}>
-                                                {emp.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Due Date</Label>
-                                <Input
-                                    type="date"
-                                    value={dueDate}
-                                    onChange={(e) => setDueDate(e.target.value)}
+                            {/* Assign to All Toggle */}
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="assignToAll"
+                                    checked={assignToAll}
+                                    onChange={(e) => {
+                                        setAssignToAll(e.target.checked)
+                                        if (e.target.checked) setSelectedEmployee("")
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300"
                                 />
+                                <Label htmlFor="assignToAll" className="text-sm font-medium">
+                                    Assign to all staff members ({staff.length})
+                                </Label>
                             </div>
 
+                            {!assignToAll && (
+                                <div className="space-y-2">
+                                    <Label>Assign To *</Label>
+                                    <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a staff member" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {staff.map((emp) => (
+                                                <SelectItem key={emp.id} value={emp.id}>
+                                                    {emp.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <Label>Notes</Label>
+                                <Label>Notes (Optional)</Label>
                                 <Textarea
                                     placeholder="Additional notes or instructions..."
                                     value={notes}
@@ -231,7 +254,6 @@ export default function ManagerAssignmentsPage() {
                                 <TableRow>
                                     <TableHead>Responsibility</TableHead>
                                     <TableHead>Assigned To</TableHead>
-                                    <TableHead>Due Date</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
@@ -242,25 +264,26 @@ export default function ManagerAssignmentsPage() {
                                         <TableCell className="font-medium">
                                             {assignment.responsibility?.title || 'N/A'}
                                         </TableCell>
-                                        <TableCell>{assignment.employee?.name || 'Unknown'}</TableCell>
-                                        <TableCell>
-                                            {assignment.dueDate
-                                                ? new Date(assignment.dueDate).toLocaleDateString()
-                                                : 'No due date'
-                                            }
-                                        </TableCell>
+                                        <TableCell>{assignment.staff?.name || 'Unknown'}</TableCell>
                                         <TableCell>
                                             <AssignmentStatusBadge status={assignment.status} />
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="sm">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        // Edit functionality - could open edit dialog
+                                                        toast.info("Edit feature coming soon")
+                                                    }}
+                                                >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="text-destructive"
+                                                    className="text-destructive hover:text-destructive"
                                                     onClick={() => handleDelete(assignment.id)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />

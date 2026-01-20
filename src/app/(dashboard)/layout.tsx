@@ -91,6 +91,12 @@ const navigation: NavigationItem[] = [
     roles: ["MANAGER"]
   },
   {
+    name: "Review Submissions",
+    href: "/manager/submissions",
+    icon: <FileCheck className="w-5 h-5" />,
+    roles: ["MANAGER"]
+  },
+  {
     name: "Responsibilities",
     href: "/manager/responsibilities",
     icon: <Briefcase className="w-5 h-5" />,
@@ -103,21 +109,9 @@ const navigation: NavigationItem[] = [
     roles: ["MANAGER"]
   },
   {
-    name: "Work Submissions",
-    href: "/manager/work-submissions",
-    icon: <FileCheck className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
-  {
     name: "My Staff",
     href: "/manager/staff",
     icon: <UserCheck className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
-  {
-    name: "Analytics",
-    href: "/manager/analytics",
-    icon: <BarChart3 className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
   {
@@ -138,6 +132,12 @@ const navigation: NavigationItem[] = [
     name: "My Assignments",
     href: "/staff/assignments",
     icon: <ClipboardList className="w-5 h-5" />,
+    roles: ["STAFF"]
+  },
+  {
+    name: "My Responsibilities",
+    href: "/staff/responsibilities",
+    icon: <FileText className="w-5 h-5" />,
     roles: ["STAFF"]
   },
   {

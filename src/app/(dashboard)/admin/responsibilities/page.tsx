@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { Responsibility } from "@/types/cir"
+import { useAuth } from "@/components/providers/auth-context"
+import { Responsibility, SubDepartment, CreateResponsibilityDto } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { PriorityBadge } from "@/components/ui/status-badge"
+import { Calendar } from "@/components/ui/calendar"
+import { Badge } from "@/components/ui/badge"
 import {
     Table,
     TableBody,
@@ -33,31 +35,50 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Search, Plus, Pencil, Trash2 } from "lucide-react"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { Search, Plus, Pencil, Trash2, CalendarIcon, Building } from "lucide-react"
 import { toast } from "sonner"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 export default function AdminResponsibilitiesPage() {
+    const { user } = useAuth()
     const [responsibilities, setResponsibilities] = useState<Responsibility[]>([])
+    const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
 
-    // Form state
+    // Form state - matches schema exactly
     const [title, setTitle] = useState("")
     const [description, setDescription] = useState("")
-    const [priority, setPriority] = useState<string>("MEDIUM")
+    const [cycle, setCycle] = useState("")
+    const [selectedSubDepartment, setSelectedSubDepartment] = useState("")
+    const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+    const [endDate, setEndDate] = useState<Date | undefined>(undefined)
 
     useEffect(() => {
-        fetchResponsibilities()
+        fetchData()
+        // Auto-generate cycle from current month
+        const now = new Date()
+        setCycle(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
     }, [])
 
-    async function fetchResponsibilities() {
+    async function fetchData() {
         try {
-            const data = await api.responsibilities.getAll()
-            setResponsibilities(data)
+            const [responsibilitiesData, subDepartmentsData] = await Promise.all([
+                api.responsibilities.getAll(),
+                api.subDepartments.getAll(),
+            ])
+            setResponsibilities(responsibilitiesData)
+            setSubDepartments(subDepartmentsData)
         } catch (error) {
-            console.error("Failed to fetch responsibilities:", error)
+            console.error("Failed to fetch data:", error)
         } finally {
             setIsLoading(false)
         }
@@ -73,21 +94,43 @@ export default function AdminResponsibilitiesPage() {
             toast.error("Title is required")
             return
         }
+        if (!cycle.trim() || !/^\d{4}-\d{2}$/.test(cycle)) {
+            toast.error("Cycle must be in YYYY-MM format")
+            return
+        }
+        if (!selectedSubDepartment) {
+            toast.error("Sub-department is required")
+            return
+        }
+        if (!user?.id) {
+            toast.error("User authentication required")
+            return
+        }
+        if (startDate && endDate && startDate > endDate) {
+            toast.error("Start date must be before end date")
+            return
+        }
 
         setIsCreating(true)
         try {
-            await api.responsibilities.create({
-                title,
-                description: description || undefined,
-                priority: priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
-            })
+            const payload: CreateResponsibilityDto = {
+                title: title.trim(),
+                cycle: cycle.trim(),
+                createdBy: { connect: { id: parseInt(user.id) } },
+                subDepartment: { connect: { id: parseInt(selectedSubDepartment) } },
+                description: description.trim() || undefined,
+                startDate: startDate ? startDate.toISOString() : undefined,
+                endDate: endDate ? endDate.toISOString() : undefined,
+            }
+
+            await api.responsibilities.create(payload)
             toast.success("Responsibility created successfully")
             setCreateDialogOpen(false)
             resetForm()
-            fetchResponsibilities()
-        } catch (error) {
+            fetchData()
+        } catch (error: any) {
             console.error("Failed to create responsibility:", error)
-            toast.error("Failed to create responsibility")
+            toast.error(error.message || "Failed to create responsibility")
         } finally {
             setIsCreating(false)
         }
@@ -96,7 +139,11 @@ export default function AdminResponsibilitiesPage() {
     function resetForm() {
         setTitle("")
         setDescription("")
-        setPriority("MEDIUM")
+        const now = new Date()
+        setCycle(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+        setSelectedSubDepartment("")
+        setStartDate(undefined)
+        setEndDate(undefined)
     }
 
     async function handleDelete(id: string) {
@@ -105,11 +152,18 @@ export default function AdminResponsibilitiesPage() {
         try {
             await api.responsibilities.delete(id)
             toast.success("Responsibility deleted")
-            fetchResponsibilities()
+            fetchData()
         } catch (error) {
             console.error("Failed to delete responsibility:", error)
             toast.error("Failed to delete responsibility")
         }
+    }
+
+    // Helper to get sub-department name by ID
+    function getSubDepartmentName(subDeptId?: string): string {
+        if (!subDeptId) return 'N/A'
+        const subDept = subDepartments.find(sd => sd.id === subDeptId)
+        return subDept?.name || 'N/A'
     }
 
     if (isLoading) {
@@ -126,55 +180,138 @@ export default function AdminResponsibilitiesPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Responsibilities</h1>
                     <p className="text-muted-foreground">
-                        Manage work responsibility templates
+                        Manage work responsibilities across all sub-departments
                     </p>
                 </div>
                 <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                     <DialogTrigger asChild>
                         <Button>
-                            <Plus className="h-4 w-4 mr-2" /> Add Responsibility
+                            <Plus className="h-4 w-4 mr-2" /> Create Responsibility
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Create Responsibility</DialogTitle>
                             <DialogDescription>
-                                Define a new work responsibility template
+                                Create a new responsibility and assign it to a sub-department
                             </DialogDescription>
                         </DialogHeader>
 
                         <div className="space-y-4 py-4">
+                            {/* Title */}
                             <div className="space-y-2">
-                                <Label>Title *</Label>
+                                <Label htmlFor="title">
+                                    Title <span className="text-red-500">*</span>
+                                </Label>
                                 <Input
+                                    id="title"
                                     placeholder="Enter responsibility title"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                 />
                             </div>
 
+                            {/* Cycle */}
                             <div className="space-y-2">
-                                <Label>Description</Label>
+                                <Label htmlFor="cycle">
+                                    Cycle (YYYY-MM) <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                    id="cycle"
+                                    value={cycle}
+                                    onChange={(e) => setCycle(e.target.value)}
+                                    placeholder="e.g., 2026-01"
+                                    pattern="\d{4}-\d{2}"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    The work cycle this responsibility belongs to
+                                </p>
+                            </div>
+
+                            {/* Sub-Department */}
+                            <div className="space-y-2">
+                                <Label>
+                                    Sub-Department <span className="text-red-500">*</span>
+                                </Label>
+                                <Select value={selectedSubDepartment} onValueChange={setSelectedSubDepartment}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a sub-department" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {subDepartments.map((sd) => (
+                                            <SelectItem key={sd.id} value={sd.id}>
+                                                {sd.name} {sd.department?.name ? `(${sd.department.name})` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Start Date */}
+                            <div className="space-y-2">
+                                <Label>Start Date (Optional)</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !startDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {startDate ? format(startDate, "PPP") : "Select start date"}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={startDate}
+                                            onSelect={setStartDate}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            {/* End Date */}
+                            <div className="space-y-2">
+                                <Label>End Date (Optional)</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !endDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {endDate ? format(endDate, "PPP") : "Select end date"}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={endDate}
+                                            onSelect={setEndDate}
+                                            disabled={(date) => startDate ? date < startDate : false}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            {/* Description */}
+                            <div className="space-y-2">
+                                <Label htmlFor="description">Description (Optional)</Label>
                                 <Textarea
+                                    id="description"
                                     placeholder="Describe the responsibility..."
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
+                                    rows={3}
                                 />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Priority</Label>
-                                <Select value={priority} onValueChange={setPriority}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="LOW">Low</SelectItem>
-                                        <SelectItem value="MEDIUM">Medium</SelectItem>
-                                        <SelectItem value="HIGH">High</SelectItem>
-                                        <SelectItem value="CRITICAL">Critical</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
 
@@ -183,7 +320,7 @@ export default function AdminResponsibilitiesPage() {
                                 Cancel
                             </Button>
                             <Button onClick={handleCreate} disabled={isCreating}>
-                                {isCreating ? "Creating..." : "Create"}
+                                {isCreating ? "Creating..." : "Create Responsibility"}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -223,20 +360,46 @@ export default function AdminResponsibilitiesPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Title</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead>Priority</TableHead>
+                                    <TableHead>Sub-Department</TableHead>
+                                    <TableHead>Cycle</TableHead>
+                                    <TableHead>Date Range</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredResponsibilities.map((resp) => (
                                     <TableRow key={resp.id}>
-                                        <TableCell className="font-medium">{resp.title}</TableCell>
-                                        <TableCell className="max-w-[300px] truncate">
-                                            {resp.description || '-'}
+                                        <TableCell>
+                                            <div>
+                                                <p className="font-medium">{resp.title}</p>
+                                                {resp.description && (
+                                                    <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                                        {resp.description}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
-                                            <PriorityBadge priority={resp.priority} />
+                                            <div className="flex items-center gap-1">
+                                                <Building className="h-3 w-3 text-muted-foreground" />
+                                                {resp.subDepartment?.name || getSubDepartmentName(resp.subDepartmentId)}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{resp.cycle || 'N/A'}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {resp.startDate && resp.endDate ? (
+                                                <span className="text-sm">
+                                                    {format(new Date(resp.startDate), "MMM d")} - {format(new Date(resp.endDate), "MMM d, yyyy")}
+                                                </span>
+                                            ) : resp.startDate ? (
+                                                <span className="text-sm">From {format(new Date(resp.startDate), "MMM d, yyyy")}</span>
+                                            ) : resp.endDate ? (
+                                                <span className="text-sm">Until {format(new Date(resp.endDate), "MMM d, yyyy")}</span>
+                                            ) : (
+                                                <span className="text-muted-foreground">No dates set</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
-import { SubmissionStatus, AssignmentStatus } from "@/types/cir"
+import { SubmissionStatus, AssignmentStatus, DayStatus } from "@/types/cir"
 
 const statusBadgeVariants = cva(
     "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
@@ -15,6 +15,8 @@ const statusBadgeVariants = cva(
                 IN_PROGRESS: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-400",
                 COMPLETED: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
                 OVERDUE: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
+                NOT_SUBMITTED: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400",
+                PARTIAL: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400",
             },
         },
         defaultVariants: {
@@ -31,6 +33,8 @@ const statusIcons: Record<string, string> = {
     IN_PROGRESS: "🔄",
     COMPLETED: "✓",
     OVERDUE: "⚠",
+    NOT_SUBMITTED: "○",
+    PARTIAL: "◐",
 }
 
 const statusLabels: Record<string, string> = {
@@ -41,6 +45,8 @@ const statusLabels: Record<string, string> = {
     IN_PROGRESS: "In Progress",
     COMPLETED: "Completed",
     OVERDUE: "Overdue",
+    NOT_SUBMITTED: "Not Submitted",
+    PARTIAL: "Partial",
 }
 
 export interface StatusBadgeProps
@@ -80,6 +86,15 @@ interface AssignmentStatusBadgeProps extends Omit<StatusBadgeProps, 'status'> {
 }
 
 function AssignmentStatusBadge({ status, ...props }: AssignmentStatusBadgeProps) {
+    return <StatusBadge status={status} {...props} />
+}
+
+// Day status badge for calendar view
+interface DayStatusBadgeProps extends Omit<StatusBadgeProps, 'status'> {
+    status: DayStatus
+}
+
+function DayStatusBadge({ status, ...props }: DayStatusBadgeProps) {
     return <StatusBadge status={status} {...props} />
 }
 
@@ -146,6 +161,7 @@ export {
     StatusBadge,
     SubmissionStatusBadge,
     AssignmentStatusBadge,
+    DayStatusBadge,
     PriorityBadge,
     RoleBadge,
     statusBadgeVariants,

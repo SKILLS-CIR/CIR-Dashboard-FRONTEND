@@ -1,78 +1,331 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import { api } from "@/lib/api"
-import { Assignment, WorkSubmission } from "@/types/cir"
+import { Assignment, WorkSubmission, DayStatus } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { SubmissionStatusBadge, AssignmentStatusBadge } from "@/components/ui/status-badge"
-import Link from "next/link"
+import { DailyMetricsCards } from "@/components/staff/daily-metrics-cards"
+import { DailyWorkCard, DailyWorkEntry, WorkProofType } from "@/components/staff/daily-work-card"
+import { DailyWorkCalendar } from "@/components/staff/daily-work-calendar"
+import { toast } from "sonner"
 import {
-    ClipboardList,
-    FileCheck,
+    Send,
+    Calendar,
     Clock,
-    CheckCircle,
-    ArrowRight,
     AlertCircle,
+    CheckCircle,
+    Lock,
+    RefreshCw,
 } from "lucide-react"
 
-interface DashboardStats {
-    totalAssignments: number
-    pendingAssignments: number
-    completedAssignments: number
-    submittedCount: number
-    verifiedCount: number
-    rejectedCount: number
+interface CalendarDayData {
+    date: string
+    status: DayStatus
+    totalHours: number
+    verifiedHours: number
+    isLocked: boolean
+    hasSubmissions: boolean
+}
+
+interface DailyMetrics {
+    todayStatus: DayStatus
+    todayHours: number
+    todayVerifiedHours: number
+    verifiedDaysCount: number
+    missedDaysCount: number
+    totalSubmittedDays: number
+    totalRejectedCount: number
 }
 
 export default function StaffDashboardPage() {
     const { user } = useAuth()
-    const [stats, setStats] = useState<DashboardStats>({
-        totalAssignments: 0,
-        pendingAssignments: 0,
-        completedAssignments: 0,
-        submittedCount: 0,
-        verifiedCount: 0,
-        rejectedCount: 0,
-    })
-    const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([])
-    const [recentSubmissions, setRecentSubmissions] = useState<WorkSubmission[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [selectedDate, setSelectedDate] = useState(new Date())
+    
+    // Data states
+    const [assignments, setAssignments] = useState<Assignment[]>([])
+    const [todaySubmissions, setTodaySubmissions] = useState<WorkSubmission[]>([])
+    const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
+    const [workEntries, setWorkEntries] = useState<Map<number, DailyWorkEntry>>(new Map())
 
+    const today = useMemo(() => {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        return d
+    }, [])
+
+    const isToday = useMemo(() => {
+        return selectedDate.toDateString() === today.toDateString()
+    }, [selectedDate, today])
+
+    const isLocked = useMemo(() => {
+        return selectedDate < today || selectedDate > today
+    }, [selectedDate, today])
+
+    // Fetch all data
     useEffect(() => {
-        async function fetchDashboardData() {
-            try {
-                const [assignments, submissions] = await Promise.all([
-                    api.assignments.getAll(),
-                    api.workSubmissions.getAll(),
-                ])
+        fetchDashboardData()
+    }, [])
 
-                // Backend scopes to own data for STAFF
-                const pending = assignments.filter(a =>
-                    a.status === 'PENDING' || a.status === 'IN_PROGRESS'
-                )
+    async function fetchDashboardData() {
+        setIsLoading(true)
+        try {
+            const [assignmentsData, submissionsData, todayData] = await Promise.all([
+                api.assignments.getAll(),
+                api.workSubmissions.getAll(),
+                api.workSubmissions.getToday(),
+            ])
 
-                setStats({
-                    totalAssignments: assignments.length,
-                    pendingAssignments: pending.length,
-                    completedAssignments: assignments.filter(a => a.status === 'COMPLETED').length,
-                    submittedCount: submissions.filter(s => s.status === 'SUBMITTED').length,
-                    verifiedCount: submissions.filter(s => s.status === 'VERIFIED').length,
-                    rejectedCount: submissions.filter(s => s.status === 'REJECTED').length,
-                })
+            setAssignments(assignmentsData)
+            setAllSubmissions(submissionsData)
+            setTodaySubmissions(todayData)
 
-                setPendingAssignments(pending.slice(0, 5))
-                setRecentSubmissions(submissions.slice(0, 5))
-            } catch (error) {
-                console.error("Failed to fetch dashboard data:", error)
-            } finally {
-                setIsLoading(false)
+            // Initialize work entries from assignments
+            initializeWorkEntries(assignmentsData, todayData)
+        } catch (error) {
+            console.error("Failed to fetch dashboard data:", error)
+            toast.error("Failed to load dashboard data")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    function initializeWorkEntries(assignments: Assignment[], submissions: WorkSubmission[]) {
+        const entries = new Map<number, DailyWorkEntry>()
+        
+        assignments.forEach(assignment => {
+            const assignmentIdNum = typeof assignment.id === 'string' ? parseInt(assignment.id) : assignment.id as number
+            const existingSubmission = submissions.find(s => {
+                const subAssignmentId = typeof s.assignmentId === 'string' ? parseInt(s.assignmentId) : s.assignmentId as unknown as number
+                return subAssignmentId === assignmentIdNum
+            })
+            
+            entries.set(assignmentIdNum, {
+                assignmentId: assignmentIdNum,
+                responsibilityTitle: assignment.responsibility?.title || 'Untitled Responsibility',
+                responsibilityDescription: assignment.responsibility?.description,
+                isStaffCreated: false,
+                hoursWorked: existingSubmission ? (existingSubmission as any).hoursWorked || 0 : 0,
+                workDescription: existingSubmission ? (existingSubmission as any).staffComment || '' : '',
+                workProofType: (existingSubmission as any)?.workProofType || 'TEXT',
+                workProofText: (existingSubmission as any)?.workProofText || '',
+                workProofUrl: (existingSubmission as any)?.workProofUrl || '',
+                existingSubmission: existingSubmission,
+            })
+        })
+        
+        setWorkEntries(entries)
+    }
+
+    // Calculate metrics
+    const metrics = useMemo((): DailyMetrics => {
+        const todayDateStr = today.toISOString().split('T')[0]
+        
+        // Get unique dates from submissions
+        const submissionDates = new Map<string, { 
+            hasVerified: boolean
+            hasSubmitted: boolean
+            hasRejected: boolean
+            totalHours: number
+            verifiedHours: number
+        }>()
+
+        allSubmissions.forEach(submission => {
+            const dateStr = new Date((submission as any).workDate || submission.submittedAt).toISOString().split('T')[0]
+            const existing = submissionDates.get(dateStr) || {
+                hasVerified: false,
+                hasSubmitted: false,
+                hasRejected: false,
+                totalHours: 0,
+                verifiedHours: 0,
+            }
+            
+            const status = submission.assignment?.status || submission.status
+            const hours = (submission as any).hoursWorked || 0
+            
+            existing.totalHours += hours
+            
+            if (status === 'VERIFIED') {
+                existing.hasVerified = true
+                existing.verifiedHours += hours
+            } else if (status === 'SUBMITTED') {
+                existing.hasSubmitted = true
+            } else if (status === 'REJECTED') {
+                existing.hasRejected = true
+            }
+            
+            submissionDates.set(dateStr, existing)
+        })
+
+        // Calculate today's metrics
+        const todayData = submissionDates.get(todayDateStr)
+        let todayStatus: DayStatus = 'NOT_SUBMITTED'
+        
+        if (todayData) {
+            if (todayData.hasRejected && !todayData.hasVerified && !todayData.hasSubmitted) {
+                todayStatus = 'REJECTED'
+            } else if (todayData.hasVerified && !todayData.hasSubmitted && !todayData.hasRejected) {
+                todayStatus = 'VERIFIED'
+            } else if (todayData.hasSubmitted || todayData.hasVerified) {
+                todayStatus = todayData.hasRejected ? 'PARTIAL' : 'SUBMITTED'
             }
         }
 
-        fetchDashboardData()
-    }, [])
+        // Count verified days
+        let verifiedDaysCount = 0
+        submissionDates.forEach((data) => {
+            if (data.hasVerified) {
+                verifiedDaysCount++
+            }
+        })
+
+        // Calculate missed days (working days without submission in the past 30 days)
+        let missedDaysCount = 0
+        const thirtyDaysAgo = new Date(today)
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        
+        for (let d = new Date(thirtyDaysAgo); d < today; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0]
+            if (!submissionDates.has(dateStr)) {
+                missedDaysCount++
+            }
+        }
+
+        return {
+            todayStatus,
+            todayHours: todayData?.totalHours || 0,
+            todayVerifiedHours: todayData?.verifiedHours || 0,
+            verifiedDaysCount,
+            missedDaysCount,
+            totalSubmittedDays: submissionDates.size,
+            totalRejectedCount: allSubmissions.filter(s => 
+                s.assignment?.status === 'REJECTED' || s.status === 'REJECTED'
+            ).length,
+        }
+    }, [allSubmissions, today])
+
+    // Generate calendar data
+    const calendarData = useMemo((): CalendarDayData[] => {
+        const data: CalendarDayData[] = []
+        const submissionsByDate = new Map<string, WorkSubmission[]>()
+
+        allSubmissions.forEach(submission => {
+            const dateStr = new Date((submission as any).workDate || submission.submittedAt).toISOString().split('T')[0]
+            const existing = submissionsByDate.get(dateStr) || []
+            existing.push(submission)
+            submissionsByDate.set(dateStr, existing)
+        })
+
+        submissionsByDate.forEach((submissions, dateStr) => {
+            const date = new Date(dateStr)
+            let status: DayStatus = 'NOT_SUBMITTED'
+            let totalHours = 0
+            let verifiedHours = 0
+
+            submissions.forEach(sub => {
+                const hours = (sub as any).hoursWorked || 0
+                totalHours += hours
+                
+                const subStatus = sub.assignment?.status || sub.status
+                if (subStatus === 'VERIFIED') {
+                    verifiedHours += hours
+                }
+            })
+
+            // Determine day status based on submissions
+            const hasVerified = submissions.some(s => (s.assignment?.status || s.status) === 'VERIFIED')
+            const hasSubmitted = submissions.some(s => (s.assignment?.status || s.status) === 'SUBMITTED')
+            const hasRejected = submissions.some(s => (s.assignment?.status || s.status) === 'REJECTED')
+
+            if (hasVerified && !hasSubmitted && !hasRejected) {
+                status = 'VERIFIED'
+            } else if (hasRejected && !hasVerified && !hasSubmitted) {
+                status = 'REJECTED'
+            } else if (hasSubmitted || hasVerified) {
+                status = hasRejected ? 'PARTIAL' : 'SUBMITTED'
+            }
+
+            data.push({
+                date: dateStr,
+                status,
+                totalHours,
+                verifiedHours,
+                isLocked: date < today,
+                hasSubmissions: submissions.length > 0,
+            })
+        })
+
+        return data
+    }, [allSubmissions, today])
+
+    // Handle work entry changes
+    function handleWorkEntryChange(assignmentId: number, field: keyof DailyWorkEntry, value: string | number) {
+        setWorkEntries(prev => {
+            const newMap = new Map(prev)
+            const entry = newMap.get(assignmentId)
+            if (entry) {
+                newMap.set(assignmentId, { ...entry, [field]: value })
+            }
+            return newMap
+        })
+    }
+
+    // Handle daily submission
+    async function handleSubmitDailyWork() {
+        const entries = Array.from(workEntries.values())
+        const entriesToSubmit = entries.filter(e => 
+            e.hoursWorked > 0 && !e.existingSubmission
+        )
+
+        if (entriesToSubmit.length === 0) {
+            toast.error("Please enter hours for at least one responsibility")
+            return
+        }
+
+        if (!user?.id) {
+            toast.error("User not authenticated")
+            return
+        }
+
+        setIsSubmitting(true)
+        try {
+            for (const entry of entriesToSubmit) {
+                // Use Prisma connect pattern expected by backend
+                await api.workSubmissions.create({
+                    assignment: { connect: { id: entry.assignmentId } },
+                    staff: { connect: { id: parseInt(user.id) } },
+                    hoursWorked: entry.hoursWorked,
+                    staffComment: entry.workDescription || undefined,
+                    workProofType: entry.workProofType as 'PDF' | 'IMAGE' | 'TEXT' | undefined,
+                    workProofText: entry.workProofText || undefined,
+                    workProofUrl: entry.workProofUrl || undefined,
+                })
+            }
+
+            toast.success(`Submitted ${entriesToSubmit.length} work entries for today`)
+            await fetchDashboardData()
+        } catch (error: any) {
+            console.error("Failed to submit work:", error)
+            toast.error(error.message || "Failed to submit work")
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    // Check if there are any unsubmitted entries
+    const hasUnsubmittedWork = useMemo(() => {
+        return Array.from(workEntries.values()).some(e => 
+            e.hoursWorked > 0 && !e.existingSubmission
+        )
+    }, [workEntries])
+
+    // Calculate total hours for today
+    const todayTotalHours = useMemo(() => {
+        return Array.from(workEntries.values()).reduce((sum, e) => sum + (e.hoursWorked || 0), 0)
+    }, [workEntries])
 
     if (isLoading) {
         return (
@@ -85,179 +338,172 @@ export default function StaffDashboardPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
-                <p className="text-muted-foreground">
-                    Welcome back, {user?.name || 'Staff'}. Track your work and submissions here.
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
+                    <p className="text-muted-foreground">
+                        Welcome back, {user?.name || 'Staff'}. Submit your daily work here.
+                    </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchDashboardData}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                </Button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">My Assignments</CardTitle>
-                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalAssignments}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Total assignments
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-amber-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                        <Clock className="h-4 w-4 text-amber-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.pendingAssignments}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Awaiting completion
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-green-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Verified</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.verifiedCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Approved submissions
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-blue-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Submitted</CardTitle>
-                        <FileCheck className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.submittedCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Awaiting review
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Daily Metrics */}
+            <DailyMetricsCards metrics={metrics} />
 
             {/* Rejected Alert */}
-            {stats.rejectedCount > 0 && (
+            {metrics.totalRejectedCount > 0 && (
                 <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
                             <AlertCircle className="h-5 w-5" />
-                            {stats.rejectedCount} Rejected Submission{stats.rejectedCount > 1 ? 's' : ''}
+                            {metrics.totalRejectedCount} Rejected Submission{metrics.totalRejectedCount > 1 ? 's' : ''}
                         </CardTitle>
                         <CardDescription className="text-red-600 dark:text-red-400">
-                            Some of your work requires revision. Please review and resubmit.
+                            Some of your work requires revision. Please review the rejected items below.
                         </CardDescription>
                     </CardHeader>
                 </Card>
             )}
 
-            {/* Pending Assignments */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>My Pending Assignments</CardTitle>
-                        <CardDescription>Work that needs to be completed</CardDescription>
-                    </div>
-                    {stats.pendingAssignments > 0 && (
-                        <Button asChild>
-                            <Link href="/staff/assignments">
-                                View All <ArrowRight className="ml-2 h-4 w-4" />
-                            </Link>
-                        </Button>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    {pendingAssignments.length === 0 ? (
-                        <div className="text-center py-8">
-                            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                            <p className="text-muted-foreground">
-                                All caught up! No pending assignments.
-                            </p>
-                        </div>
+            <div className="grid gap-6 lg:grid-cols-3">
+                {/* Daily Work View - Left Column */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Date Header */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Calendar className="h-5 w-5" />
+                                        {isToday ? "Today's Work" : selectedDate.toLocaleDateString('en-US', {
+                                            weekday: 'long',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        })}
+                                    </CardTitle>
+                                    <CardDescription className="flex items-center gap-2 mt-1">
+                                        {isLocked ? (
+                                            <>
+                                                <Lock className="h-4 w-4" />
+                                                {selectedDate < today 
+                                                    ? "This date is locked. Past submissions cannot be modified."
+                                                    : "Future dates are not available for submission."
+                                                }
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Clock className="h-4 w-4" />
+                                                Total: {todayTotalHours} hours
+                                            </>
+                                        )}
+                                    </CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                    </Card>
+
+                    {/* Work Entries */}
+                    {workEntries.size === 0 ? (
+                        <Card>
+                            <CardContent className="py-12 text-center">
+                                <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-muted-foreground">
+                                    {isToday 
+                                        ? "No responsibilities assigned for today. Contact your manager to get assigned responsibilities."
+                                        : "No work entries for this date."
+                                    }
+                                </p>
+                            </CardContent>
+                        </Card>
                     ) : (
                         <div className="space-y-4">
-                            {pendingAssignments.map((assignment) => (
-                                <div
-                                    key={assignment.id}
-                                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                                >
-                                    <div className="flex-1">
-                                        <p className="font-medium">
-                                            {assignment.responsibility?.title || 'Assignment'}
-                                        </p>
+                            {Array.from(workEntries.values()).map(entry => (
+                                <DailyWorkCard
+                                    key={entry.assignmentId}
+                                    entry={entry}
+                                    isLocked={isLocked || !!entry.existingSubmission}
+                                    onChange={handleWorkEntryChange}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Submit Button */}
+                    {isToday && !isLocked && workEntries.size > 0 && (
+                        <Card className="border-primary">
+                            <CardContent className="py-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium">Ready to submit?</p>
                                         <p className="text-sm text-muted-foreground">
-                                            {assignment.dueDate
-                                                ? `Due: ${new Date(assignment.dueDate).toLocaleDateString()}`
-                                                : 'No due date'
+                                            {hasUnsubmittedWork 
+                                                ? `You have work entries ready to submit (${todayTotalHours} total hours)`
+                                                : "All work for today has been submitted"
                                             }
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <AssignmentStatusBadge status={assignment.status} />
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={`/staff/work-submissions?assignment=${assignment.id}`}>
-                                                Submit Work
-                                            </Link>
-                                        </Button>
-                                    </div>
+                                    <Button 
+                                        onClick={handleSubmitDailyWork}
+                                        disabled={isSubmitting || !hasUnsubmittedWork}
+                                        size="lg"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                                Submitting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="h-4 w-4 mr-2" />
+                                                Submit Today's Work
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
-                            ))}
-                        </div>
+                            </CardContent>
+                        </Card>
                     )}
-                </CardContent>
-            </Card>
 
-            {/* Recent Submissions */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Recent Submissions</CardTitle>
-                        <CardDescription>Your latest work submissions</CardDescription>
-                    </div>
-                    <Button variant="outline" asChild>
-                        <Link href="/staff/work-submissions">
-                            View All <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                    </Button>
-                </CardHeader>
-                <CardContent>
-                    {recentSubmissions.length === 0 ? (
-                        <p className="text-muted-foreground text-center py-4">
-                            No submissions yet
-                        </p>
-                    ) : (
-                        <div className="space-y-4">
-                            {recentSubmissions.map((submission) => (
-                                <div
-                                    key={submission.id}
-                                    className="flex items-center justify-between p-4 border rounded-lg"
-                                >
-                                    <div className="flex-1">
-                                        <p className="font-medium">
-                                            {submission.assignment?.responsibility?.title || 'Work Submission'}
+                    {/* Past Date Message */}
+                    {!isToday && isLocked && selectedDate < today && (
+                        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                            <CardContent className="py-6">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-medium text-amber-800 dark:text-amber-300">
+                                            {calendarData.find(d => d.date === selectedDate.toISOString().split('T')[0])?.hasSubmissions
+                                                ? "This date's submissions are locked"
+                                                : "No work submitted for this date"
+                                            }
                                         </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
+                                        <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                                            {calendarData.find(d => d.date === selectedDate.toISOString().split('T')[0])?.hasSubmissions
+                                                ? "Past submissions cannot be modified. Contact your manager for any queries."
+                                                : "No work was submitted. Please contact your manager for queries."
+                                            }
                                         </p>
                                     </div>
-                                    <SubmissionStatusBadge status={submission.status} />
                                 </div>
-                            ))}
-                        </div>
+                            </CardContent>
+                        </Card>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+
+                {/* Calendar View - Right Column */}
+                <div>
+                    <DailyWorkCalendar
+                        calendarData={calendarData}
+                        selectedDate={selectedDate}
+                        onDateSelect={setSelectedDate}
+                    />
+                </div>
+            </div>
         </div>
     )
 }
