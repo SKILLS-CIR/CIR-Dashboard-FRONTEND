@@ -36,12 +36,12 @@ import {
     TableHeader,
     TableRow
 } from "@/components/ui/table"
-import { 
-    CheckCircle, 
-    XCircle, 
-    Eye, 
-    CalendarIcon, 
-    Clock, 
+import {
+    CheckCircle,
+    XCircle,
+    Eye,
+    CalendarIcon,
+    Clock,
     FileText,
     Link2,
     MessageSquare,
@@ -58,7 +58,7 @@ export default function ManagerSubmissionsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
     const [searchQuery, setSearchQuery] = useState("")
-    
+
     // Review dialog state
     const [selectedSubmission, setSelectedSubmission] = useState<WorkSubmission | null>(null)
     const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -80,7 +80,7 @@ export default function ManagerSubmissionsPage() {
 
             // Filter staff to only include STAFF role
             const staffMembers = staffData.filter(e => e.role === 'STAFF')
-            
+
             // Filter submissions for the selected date
             const dateFilteredSubmissions = submissionsData.filter(s => {
                 const submissionDate = new Date((s as any).workDate || s.submittedAt)
@@ -109,7 +109,7 @@ export default function ManagerSubmissionsPage() {
     const filterSubmissions = (subs: WorkSubmission[]) => {
         if (!searchQuery) return subs
         const query = searchQuery.toLowerCase()
-        return subs.filter(s => 
+        return subs.filter(s =>
             s.staff?.name?.toLowerCase().includes(query) ||
             s.assignment?.responsibility?.title?.toLowerCase().includes(query)
         )
@@ -126,8 +126,8 @@ export default function ManagerSubmissionsPage() {
         setIsVerifying(true)
         try {
             await api.workSubmissions.verify(selectedSubmission.id, {
-                status,
-                rejectionReason: status === 'REJECTED' ? rejectionReason.trim() : undefined,
+                approved: status === 'VERIFIED',
+                managerComment: status === 'REJECTED' ? rejectionReason.trim() : undefined,
             })
             toast.success(`Submission ${status === 'VERIFIED' ? 'approved' : 'rejected'} successfully`)
             setReviewDialogOpen(false)
@@ -429,9 +429,9 @@ export default function ManagerSubmissionsPage() {
                                             <p className="whitespace-pre-wrap">{selectedSubmission.workProofText}</p>
                                         )}
                                         {selectedSubmission.workProofUrl && (
-                                            <a 
-                                                href={selectedSubmission.workProofUrl} 
-                                                target="_blank" 
+                                            <a
+                                                href={selectedSubmission.workProofUrl}
+                                                target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-1 text-primary hover:underline"
                                             >

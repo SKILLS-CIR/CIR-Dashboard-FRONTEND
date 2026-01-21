@@ -19,6 +19,7 @@ import {
   UserCheck,
   FileCheck,
   Briefcase,
+  CalendarCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
@@ -129,9 +130,9 @@ const navigation: NavigationItem[] = [
     roles: ["STAFF"]
   },
   {
-    name: "My Assignments",
-    href: "/staff/assignments",
-    icon: <ClipboardList className="w-5 h-5" />,
+    name: "Work Calendar",
+    href: "/staff/work-calendar",
+    icon: <CalendarCheck className="w-5 h-5" />,
     roles: ["STAFF"]
   },
   {

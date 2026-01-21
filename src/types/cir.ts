@@ -154,8 +154,10 @@ export interface Assignment {
   staffId: string
   staff?: Employee
   status: AssignmentStatus
+  dueDate?: string
   assignedAt: string
   updatedAt: string
+  workSubmissions?: WorkSubmission[] // One-to-many: daily submissions
 }
 
 export type AssignmentStatus = 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED'
@@ -214,8 +216,8 @@ export interface UpdateWorkSubmissionDto {
 }
 
 export interface VerifySubmissionDto {
-  status: 'VERIFIED' | 'REJECTED'
-  rejectionReason?: string
+  approved: boolean
+  managerComment?: string
 }
 
 // ==================== Daily Work Submission Types ====================

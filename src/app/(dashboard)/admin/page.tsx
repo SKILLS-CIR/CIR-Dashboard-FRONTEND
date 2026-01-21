@@ -13,25 +13,25 @@ import { Label } from "@/components/ui/label"
 import { Calendar } from "@/components/ui/calendar"
 import { SubmissionStatusBadge } from "@/components/ui/status-badge"
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select"
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover"
 import {
   Users,
@@ -90,32 +90,32 @@ export default function AdminDashboardPage() {
   }, [])
 
   async function fetchDashboardData() {
-      try {
-        const [employees, departments, submissions, subDepts] = await Promise.all([
-          api.employees.getAll(),
-          api.departments.getAll(),
-          api.workSubmissions.getAll(),
-          api.subDepartments.getAll(),
-        ])
+    try {
+      const [employees, departments, submissions, subDepts] = await Promise.all([
+        api.employees.getAll(),
+        api.departments.getAll(),
+        api.workSubmissions.getAll(),
+        api.subDepartments.getAll(),
+      ])
 
-        setStats({
-          totalEmployees: employees.length,
-          totalDepartments: departments.length,
-          totalSubmissions: submissions.length,
-          pendingSubmissions: submissions.filter(s => s.status === 'PENDING').length,
-          verifiedSubmissions: submissions.filter(s => s.status === 'VERIFIED').length,
-          rejectedSubmissions: submissions.filter(s => s.status === 'REJECTED').length,
-        })
+      setStats({
+        totalEmployees: employees.length,
+        totalDepartments: departments.length,
+        totalSubmissions: submissions.length,
+        pendingSubmissions: submissions.filter(s => s.status === 'PENDING').length,
+        verifiedSubmissions: submissions.filter(s => s.status === 'VERIFIED').length,
+        rejectedSubmissions: submissions.filter(s => s.status === 'REJECTED').length,
+      })
 
-        setSubDepartments(subDepts)
-        // Get recent submissions (last 5)
-        setRecentSubmissions(submissions.slice(0, 5))
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error)
-      } finally {
-        setIsLoading(false)
-      }
+      setSubDepartments(subDepts)
+      // Get recent submissions (last 5)
+      setRecentSubmissions(submissions.slice(0, 5))
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error)
+    } finally {
+      setIsLoading(false)
     }
+  }
 
   function resetForm() {
     setTitle("")
@@ -445,7 +445,7 @@ export default function AdminDashboardPage() {
                       {submission.assignment?.responsibility?.title || 'Work Submission'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      By {submission.employee?.name || 'Unknown'} •
+                      By {submission.staff?.name || 'Unknown'} •
                       {new Date(submission.submittedAt).toLocaleDateString()}
                     </p>
                   </div>
