@@ -30,10 +30,10 @@ import {
     TableHeader,
     TableRow
 } from "@/components/ui/table"
-import { 
-    Search, 
-    User, 
-    Mail, 
+import {
+    Search,
+    User,
+    Mail,
     Building,
     Eye,
     CheckCircle,
@@ -51,12 +51,12 @@ export default function ManagerStaffPage() {
     const [staff, setStaff] = useState<Employee[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
-    
+
     // Staff detail view
     const [selectedStaff, setSelectedStaff] = useState<Employee | null>(null)
     const [staffSubmissions, setStaffSubmissions] = useState<WorkSubmission[]>([])
     const [loadingSubmissions, setLoadingSubmissions] = useState(false)
-    
+
     // Review dialog
     const [selectedSubmission, setSelectedSubmission] = useState<WorkSubmission | null>(null)
     const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -84,7 +84,7 @@ export default function ManagerStaffPage() {
         try {
             const allSubmissions = await api.workSubmissions.getAll()
             // Filter submissions for this staff member
-            const staffSubs = allSubmissions.filter(s => s.employeeId === staffId)
+            const staffSubs = allSubmissions.filter(s => s.staffId === staffId)
             setStaffSubmissions(staffSubs)
         } catch (error) {
             console.error("Failed to fetch submissions:", error)
@@ -123,8 +123,8 @@ export default function ManagerStaffPage() {
         setIsVerifying(true)
         try {
             await api.workSubmissions.verify(selectedSubmission.id, {
-                status,
-                rejectionReason: status === 'REJECTED' ? rejectionReason.trim() : undefined,
+                approved: status === 'VERIFIED',
+                managerComment: status === 'REJECTED' ? rejectionReason.trim() : undefined,
             })
             toast.success(`Submission ${status === 'VERIFIED' ? 'approved' : 'rejected'} successfully`)
             setReviewDialogOpen(false)
@@ -367,13 +367,13 @@ export default function ManagerStaffPage() {
                                     </div>
                                     <div className="p-4 bg-muted rounded-lg">
                                         <p className="whitespace-pre-wrap">
-                                            {(selectedSubmission as any).staffComment || selectedSubmission.content || 'No comments provided'}
+                                            {(selectedSubmission as any).staffComment || 'No comments provided'}
                                         </p>
                                     </div>
                                 </div>
 
                                 {/* Work Proof */}
-                                {((selectedSubmission as any).workProofUrl || (selectedSubmission as any).workProofText || (selectedSubmission.attachments && selectedSubmission.attachments.length > 0)) && (
+                                {((selectedSubmission as any).workProofUrl || (selectedSubmission as any).workProofText) && (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2 text-sm font-medium">
                                             <FileText className="h-4 w-4" />
@@ -384,9 +384,9 @@ export default function ManagerStaffPage() {
                                                 <p className="whitespace-pre-wrap">{(selectedSubmission as any).workProofText}</p>
                                             )}
                                             {(selectedSubmission as any).workProofUrl && (
-                                                <a 
-                                                    href={(selectedSubmission as any).workProofUrl} 
-                                                    target="_blank" 
+                                                <a
+                                                    href={(selectedSubmission as any).workProofUrl}
+                                                    target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-1 text-primary hover:underline"
                                                 >
@@ -394,18 +394,6 @@ export default function ManagerStaffPage() {
                                                     View attachment
                                                 </a>
                                             )}
-                                            {selectedSubmission.attachments?.map((attachment, idx) => (
-                                                <a 
-                                                    key={idx}
-                                                    href={attachment} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-1 text-primary hover:underline"
-                                                >
-                                                    <Link2 className="h-4 w-4" />
-                                                    Attachment {idx + 1}
-                                                </a>
-                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -510,8 +498,8 @@ export default function ManagerStaffPage() {
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {filteredStaff.map((member) => (
-                                <Card 
-                                    key={member.id} 
+                                <Card
+                                    key={member.id}
                                     className="p-4 cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
                                     onClick={() => handleStaffClick(member)}
                                 >

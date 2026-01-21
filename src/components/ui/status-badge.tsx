@@ -146,7 +146,7 @@ const roleBadgeVariants = cva(
 )
 
 interface RoleBadgeProps
-    extends React.HTMLAttributes<HTMLDivElement>,
+    extends Omit<React.HTMLAttributes<HTMLDivElement>, 'role'>,
     VariantProps<typeof roleBadgeVariants> { }
 
 function RoleBadge({ className, role, ...props }: RoleBadgeProps) {

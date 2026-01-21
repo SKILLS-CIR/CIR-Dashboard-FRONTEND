@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import { loginSchema } from "@/lib/validations/auth"
-import { Role } from "@prisma/client"
+import { Role } from "@/types/cir"
 
 declare module "next-auth" {
   interface User {
@@ -33,28 +33,28 @@ function parseUserAgent(ua: string): { deviceType: string, os: string, browser: 
   let deviceType = 'Desktop'
   let os = 'Unknown'
   let browser = 'Unknown'
-  
+
   // Device Type
   if (uaLower.includes('mobile') || uaLower.includes('android') || uaLower.includes('iphone')) {
     deviceType = 'Mobile'
   } else if (uaLower.includes('ipad') || uaLower.includes('tablet')) {
     deviceType = 'Tablet'
   }
-  
+
   // Operating System
   if (uaLower.includes('windows')) os = 'Windows'
   else if (uaLower.includes('mac')) os = 'macOS'
   else if (uaLower.includes('linux')) os = 'Linux'
   else if (uaLower.includes('android')) os = 'Android'
   else if (uaLower.includes('ios') || uaLower.includes('iphone') || uaLower.includes('ipad')) os = 'iOS'
-  
+
   // Browser
   if (uaLower.includes('edg')) browser = 'Edge'
   else if (uaLower.includes('chrome')) browser = 'Chrome'
   else if (uaLower.includes('firefox')) browser = 'Firefox'
   else if (uaLower.includes('safari')) browser = 'Safari'
   else if (uaLower.includes('opera')) browser = 'Opera'
-  
+
   return { deviceType, os, browser }
 }
 
@@ -97,17 +97,17 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          if (!role || !["ADMIN", "PARTICIPANT"].includes(role)) {
+          if (!role || !["ADMIN", "MANAGER", "STAFF"].includes(role)) {
             console.error("Invalid role:", role)
             return null
           }
 
           // Get IP and User Agent from request
-          const ipAddress = (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
-                           (req?.headers?.['x-real-ip'] as string) || 
-                           'unknown'
+          const ipAddress = (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+            (req?.headers?.['x-real-ip'] as string) ||
+            'unknown'
           const userAgent = (req?.headers?.['user-agent'] as string) || 'unknown'
-          
+
           // Parse user agent
           const { deviceType, os, browser } = parseUserAgent(userAgent)
 
@@ -119,7 +119,7 @@ export const authOptions: NextAuthOptions = {
               console.error("Email is required for ADMIN")
               return null
             }
-            
+
             user = await prisma.user.findUnique({
               where: { email },
               include: {
@@ -127,37 +127,20 @@ export const authOptions: NextAuthOptions = {
                 participant: true,
               },
             })
-          } else if (role === "PARTICIPANT") {
-            if (!email || !uid) {
-              console.error("Email and UID are required for PARTICIPANT")
+          } else if (role === "STAFF" || role === "MANAGER") {
+            if (!email) {
+              console.error("Email is required for STAFF/MANAGER")
               return null
             }
-            
-            // Find participant by UID
+
+            // Find user by email
             user = await prisma.user.findUnique({
-              where: { uid },
+              where: { email },
               include: {
                 admin: true,
                 participant: true,
               },
             })
-            
-            // Verify email matches
-            if (user && user.email !== email) {
-              console.error("Email mismatch for participant")
-              await prisma.loginLog.create({
-                data: {
-                  email: email,
-                  ipAddress,
-                  userAgent,
-                  deviceType,
-                  os,
-                  browser,
-                  isSuccess: false
-                }
-              })
-              return null
-            }
           }
 
           if (!user) {

@@ -44,11 +44,10 @@ export default function ManagerAssignmentsPage() {
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
 
-    // Form state - NO due date (not in schema for assignments from manager)
+    // Form state - NO due date or notes (not in backend CreateAssignmentDto)
     const [selectedResponsibility, setSelectedResponsibility] = useState("")
     const [selectedEmployee, setSelectedEmployee] = useState("")
     const [assignToAll, setAssignToAll] = useState(false)
-    const [notes, setNotes] = useState("")
 
     useEffect(() => {
         fetchData()
@@ -114,7 +113,6 @@ export default function ManagerAssignmentsPage() {
         setSelectedResponsibility("")
         setSelectedEmployee("")
         setAssignToAll(false)
-        setNotes("")
     }
 
     async function handleDelete(id: string) {
@@ -212,15 +210,6 @@ export default function ManagerAssignmentsPage() {
                                     </Select>
                                 </div>
                             )}
-
-                            <div className="space-y-2">
-                                <Label>Notes (Optional)</Label>
-                                <Textarea
-                                    placeholder="Additional notes or instructions..."
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                />
-                            </div>
                         </div>
 
                         <DialogFooter>
@@ -270,8 +259,8 @@ export default function ManagerAssignmentsPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button 
-                                                    variant="ghost" 
+                                                <Button
+                                                    variant="ghost"
                                                     size="sm"
                                                     onClick={() => {
                                                         // Edit functionality - could open edit dialog

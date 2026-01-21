@@ -185,7 +185,7 @@ export default function ManagerDashboardPage() {
                                             {submission.assignment?.responsibility?.title || 'Work Submission'}
                                         </p>
                                         <p className="text-sm text-muted-foreground">
-                                            By {submission.employee?.name || 'Staff Member'} •
+                                            By {submission.staff?.name || 'Staff Member'} •
                                             {new Date(submission.submittedAt).toLocaleDateString()}
                                         </p>
                                     </div>
