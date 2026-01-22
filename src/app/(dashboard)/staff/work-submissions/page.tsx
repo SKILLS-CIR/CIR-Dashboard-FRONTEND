@@ -7,6 +7,7 @@ import { WorkSubmission, DayStatus } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SubmissionStatusBadge, DayStatusBadge } from "@/components/ui/status-badge"
+import { format } from "date-fns"
 import { 
     FileCheck, 
     Clock, 
@@ -18,6 +19,7 @@ import {
     ChevronRight
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
+import { getDayStatus } from "@/lib/responsibility-status"
 
 interface DayGroup {
     date: string
@@ -55,7 +57,7 @@ export default function StaffWorkSubmissionsPage() {
         
         submissions.forEach(submission => {
             const workDate = (submission as any).workDate || submission.submittedAt
-            const dateStr = new Date(workDate).toISOString().split('T')[0]
+            const dateStr = format(new Date(workDate), 'yyyy-MM-dd')
             
             if (!dayMap.has(dateStr)) {
                 dayMap.set(dateStr, {
@@ -77,25 +79,16 @@ export default function StaffWorkSubmissionsPage() {
             day.submissions.push(submission)
             day.totalHours += (submission as any).hoursWorked || 0
             
-            const status = submission.assignment?.status || submission.status
+            // Use the submission's own status for THIS date
+            const status = submission.status || submission.assignment?.status
             if (status === 'VERIFIED') {
                 day.verifiedHours += (submission as any).hoursWorked || 0
             }
         })
         
-        // Calculate day status
+        // Calculate day status using shared utility
         dayMap.forEach((day) => {
-            const hasVerified = day.submissions.some(s => (s.assignment?.status || s.status) === 'VERIFIED')
-            const hasSubmitted = day.submissions.some(s => (s.assignment?.status || s.status) === 'SUBMITTED')
-            const hasRejected = day.submissions.some(s => (s.assignment?.status || s.status) === 'REJECTED')
-            
-            if (hasVerified && !hasSubmitted && !hasRejected) {
-                day.status = 'VERIFIED'
-            } else if (hasRejected && !hasVerified && !hasSubmitted) {
-                day.status = 'REJECTED'
-            } else if (hasSubmitted || hasVerified) {
-                day.status = hasRejected ? 'PARTIAL' : 'SUBMITTED'
-            }
+            day.status = getDayStatus(day.submissions)
         })
         
         // Sort by date descending
@@ -116,12 +109,13 @@ export default function StaffWorkSubmissionsPage() {
         })
     }
 
-    // Stats
+    // Stats - Use submission status directly (date-specific)
     const stats = useMemo(() => {
-        const pending = submissions.filter(s => s.status === 'PENDING' || s.assignment?.status === 'PENDING')
-        const submitted = submissions.filter(s => s.status === 'SUBMITTED' || s.assignment?.status === 'SUBMITTED')
-        const verified = submissions.filter(s => s.status === 'VERIFIED' || s.assignment?.status === 'VERIFIED')
-        const rejected = submissions.filter(s => s.status === 'REJECTED' || s.assignment?.status === 'REJECTED')
+        // Count based on submission's own status
+        const pending = submissions.filter(s => (s.status || s.assignment?.status) === 'PENDING')
+        const submitted = submissions.filter(s => (s.status || s.assignment?.status) === 'SUBMITTED')
+        const verified = submissions.filter(s => (s.status || s.assignment?.status) === 'VERIFIED')
+        const rejected = submissions.filter(s => (s.status || s.assignment?.status) === 'REJECTED')
         
         return {
             pending: pending.length,
@@ -264,7 +258,9 @@ export default function StaffWorkSubmissionsPage() {
                                     {expandedDays.has(day.date) && (
                                         <div className="border-t bg-muted/30 p-4 space-y-3">
                                             {day.submissions.map((submission) => {
-                                                const status = submission.assignment?.status || submission.status
+                                                // Use submission.status FIRST (per-submission status from DB)
+                                                // Only fall back to assignment.status for legacy data
+                                                const status = submission.status || submission.assignment?.status || 'SUBMITTED'
                                                 return (
                                                     <div
                                                         key={submission.id}

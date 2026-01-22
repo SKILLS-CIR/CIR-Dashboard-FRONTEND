@@ -31,7 +31,7 @@ export default function Home() {
           </p>
         </div>
         <div className="p-4 rounded-lg bg-white dark:bg-slate-800 shadow-sm border">
-          <h3 className="font-semibold mb-1">📤 Submit Work</h3>
+          <h3 className="font-semibold mb-1"> Submit Work</h3>
           <p className="text-xs text-muted-foreground">
             Staff submit their completed work for review
           </p>

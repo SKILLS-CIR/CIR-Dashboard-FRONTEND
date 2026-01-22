@@ -21,6 +21,15 @@ import {
     CalendarCheck,
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
+import { format } from "date-fns"
+import {
+    getSubmissionsForDate,
+    getDayStatus,
+    getActiveUnsubmittedAssignments,
+    getSubmittedAssignmentsForDate,
+    getToday,
+    getAssignmentStatusForDate,
+} from "@/lib/responsibility-status"
 
 interface DailyMetrics {
     todayStatus: DayStatus
@@ -41,11 +50,7 @@ export default function StaffDashboardPage() {
     const [todaySubmissions, setTodaySubmissions] = useState<WorkSubmission[]>([])
     const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
 
-    const today = useMemo(() => {
-        const d = new Date()
-        d.setHours(0, 0, 0, 0)
-        return d
-    }, [])
+    const today = useMemo(() => getToday(), [])
 
     // Fetch all data
     useEffect(() => {
@@ -55,14 +60,15 @@ export default function StaffDashboardPage() {
     async function fetchDashboardData() {
         setIsLoading(true)
         try {
-            const [assignmentsData, submissionsData, todayData] = await Promise.all([
+            const [assignmentsData, submissionsData] = await Promise.all([
                 api.assignments.getAll(),
                 api.workSubmissions.getAll(),
-                api.workSubmissions.getToday(),
             ])
 
             setAssignments(assignmentsData)
             setAllSubmissions(submissionsData)
+            // Set today's submissions using shared utility
+            const todayData = getSubmissionsForDate(submissionsData, new Date())
             setTodaySubmissions(todayData)
         } catch (error) {
             console.error("Failed to fetch dashboard data:", error)
@@ -72,9 +78,9 @@ export default function StaffDashboardPage() {
         }
     }
 
-    // Calculate metrics
+    // Calculate metrics using date-specific status logic
     const metrics = useMemo((): DailyMetrics => {
-        const todayDateStr = today.toISOString().split('T')[0]
+        const todayDateStr = format(today, 'yyyy-MM-dd')
 
         // Get unique dates from submissions
         const submissionDates = new Map<string, {
@@ -86,7 +92,8 @@ export default function StaffDashboardPage() {
         }>()
 
         allSubmissions.forEach(submission => {
-            const dateStr = new Date((submission as any).workDate || submission.submittedAt).toISOString().split('T')[0]
+            const workDate = new Date((submission as any).workDate || submission.submittedAt)
+            const dateStr = format(workDate, 'yyyy-MM-dd')
             const existing = submissionDates.get(dateStr) || {
                 hasVerified: false,
                 hasSubmitted: false,
@@ -95,7 +102,8 @@ export default function StaffDashboardPage() {
                 verifiedHours: 0,
             }
 
-            const status = submission.assignment?.status || submission.status
+            // Use the submission's own status for THIS DATE
+            const status = submission.status || submission.assignment?.status
             const hours = (submission as any).hoursWorked || 0
 
             existing.totalHours += hours
@@ -112,24 +120,18 @@ export default function StaffDashboardPage() {
             submissionDates.set(dateStr, existing)
         })
 
-        // Calculate today's metrics
-        const todayData = submissionDates.get(todayDateStr)
-        let todayStatus: DayStatus = 'NOT_SUBMITTED'
+        // Calculate today's metrics based on TODAY's submissions only
+        const todaySubmissionsData = getSubmissionsForDate(allSubmissions, today)
+        const todayStatus = getDayStatus(todaySubmissionsData)
+        const todayTotalHours = todaySubmissionsData.reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
+        const todayVerifiedHours = todaySubmissionsData
+            .filter(s => (s.status === 'VERIFIED') || (s.assignment?.status === 'VERIFIED'))
+            .reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
 
-        if (todayData) {
-            if (todayData.hasRejected && !todayData.hasVerified && !todayData.hasSubmitted) {
-                todayStatus = 'REJECTED'
-            } else if (todayData.hasVerified && !todayData.hasSubmitted && !todayData.hasRejected) {
-                todayStatus = 'VERIFIED'
-            } else if (todayData.hasSubmitted || todayData.hasVerified) {
-                todayStatus = todayData.hasRejected ? 'PARTIAL' : 'SUBMITTED'
-            }
-        }
-
-        // Count verified days
+        // Count verified days (based on submission status for each date)
         let verifiedDaysCount = 0
         submissionDates.forEach((data) => {
-            if (data.hasVerified) {
+            if (data.hasVerified && !data.hasSubmitted && !data.hasRejected) {
                 verifiedDaysCount++
             }
         })
@@ -140,42 +142,42 @@ export default function StaffDashboardPage() {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
         for (let d = new Date(thirtyDaysAgo); d < today; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0]
+            const dateStr = format(d, 'yyyy-MM-dd')
             if (!submissionDates.has(dateStr)) {
                 missedDaysCount++
             }
         }
 
+        // Count rejected submissions (for today only)
+        const todayRejectedCount = todaySubmissionsData.filter(s => 
+            (s.status === 'REJECTED') || (s.assignment?.status === 'REJECTED')
+        ).length
+
         return {
             todayStatus,
-            todayHours: todayData?.totalHours || 0,
-            todayVerifiedHours: todayData?.verifiedHours || 0,
+            todayHours: todayTotalHours,
+            todayVerifiedHours,
             verifiedDaysCount,
             missedDaysCount,
             totalSubmittedDays: submissionDates.size,
-            totalRejectedCount: allSubmissions.filter(s =>
-                s.assignment?.status === 'REJECTED' || s.status === 'REJECTED'
-            ).length,
+            totalRejectedCount: todayRejectedCount,
         }
     }, [allSubmissions, today])
 
-    // Get today's assignments with submission status
+    // Get today's assignments with their date-specific submission status
     const todayAssignments = useMemo(() => {
-        const todayDateStr = today.toISOString().split('T')[0]
+        // Get unsubmitted assignments for today
+        const unsubmitted = getActiveUnsubmittedAssignments(assignments, today, allSubmissions)
+        // Get submitted assignments for today
+        const submitted = getSubmittedAssignmentsForDate(assignments, today, allSubmissions)
 
-        return assignments.map(assignment => {
-            const submission = todaySubmissions.find(s => {
-                const subAssignmentId = typeof s.assignmentId === 'string' ? parseInt(s.assignmentId) : s.assignmentId
-                const assignmentId = typeof assignment.id === 'string' ? parseInt(assignment.id) : assignment.id
-                return subAssignmentId === assignmentId
-            })
-
-            return {
-                ...assignment,
-                todaySubmission: submission || null,
-            }
-        })
-    }, [assignments, todaySubmissions, today])
+        // Combine: mark unsubmitted with todaySubmission = null, submitted with their submission
+        const all = [
+            ...unsubmitted.map(a => ({ ...a, todaySubmission: null })),
+            ...submitted.map(a => ({ ...a, todaySubmission: a.submissionForDate })),
+        ]
+        return all
+    }, [assignments, today, allSubmissions])
 
     const pendingCount = todayAssignments.filter(a => !a.todaySubmission).length
     const submittedCount = todayAssignments.filter(a => a.todaySubmission).length

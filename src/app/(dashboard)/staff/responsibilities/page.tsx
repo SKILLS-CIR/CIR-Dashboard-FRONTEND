@@ -38,6 +38,7 @@ import {
     CheckCircle,
     AlertCircle,
 } from "lucide-react"
+import DashboardHeader from "@/components/dashboard-header"
 
 export default function StaffResponsibilitiesPage() {
     const { user } = useAuth()
@@ -126,7 +127,7 @@ export default function StaffResponsibilitiesPage() {
             return <Badge variant="outline">Upcoming</Badge>
         }
         if (responsibility.isActive) {
-            return <Badge variant="default" className="bg-green-600">Active</Badge>
+            return <Badge variant="default" className="bg-gray-600">Active</Badge>
         }
         return <Badge variant="secondary">Inactive</Badge>
     }
@@ -142,6 +143,7 @@ export default function StaffResponsibilitiesPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
+            <DashboardHeader/>
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">My Responsibilities</h1>
@@ -225,7 +227,7 @@ export default function StaffResponsibilitiesPage() {
             </div>
 
             {/* Info Card */}
-            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+            {/* <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
                 <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400 text-lg">
                         <FileText className="h-5 w-5" />
@@ -239,7 +241,7 @@ export default function StaffResponsibilitiesPage() {
                         <li>Your manager can see and verify work submitted against these responsibilities</li>
                     </ul>
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Responsibilities Table */}
             <Card>

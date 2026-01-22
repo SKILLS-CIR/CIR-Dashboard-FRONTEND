@@ -7,6 +7,8 @@ import { DayStatusBadge } from "@/components/ui/status-badge"
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DayStatus } from "@/types/cir"
+import { format } from "date-fns"
+import { getToday, isPastDate, isFutureDate, isToday as isTodayDate } from "@/lib/responsibility-status"
 
 interface CalendarDayData {
     date: string
@@ -32,8 +34,7 @@ export function DailyWorkCalendar({
 }: DailyWorkCalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date())
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = getToday()
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear()
@@ -59,18 +60,20 @@ export function DailyWorkCalendar({
     }
 
     const getDataForDate = (date: Date): CalendarDayData | undefined => {
-        const dateStr = date.toISOString().split('T')[0]
+        const dateStr = format(date, 'yyyy-MM-dd')
         return calendarData.find(d => d.date === dateStr)
     }
 
-    const getDayStatus = (date: Date): DayStatus => {
+    const getDayStatusForCalendar = (date: Date): DayStatus => {
         const data = getDataForDate(date)
         if (data) {
+            // Return the status directly from the calendar data
+            // The status should already be date-specific from the parent component
             return data.status
         }
         
         // If no data and date is in the past, it's a missed day
-        if (date < today) {
+        if (isPastDate(date)) {
             return 'NOT_SUBMITTED'
         }
         
@@ -80,16 +83,16 @@ export function DailyWorkCalendar({
 
     const isDateDisabled = (date: Date): boolean => {
         // Future dates are disabled
-        return date > today
+        return isFutureDate(date)
     }
 
     const isDateLocked = (date: Date): boolean => {
         // Past dates are locked
-        return date < today
+        return isPastDate(date)
     }
 
     const isSameDay = (date1: Date, date2: Date): boolean => {
-        return date1.toDateString() === date2.toDateString()
+        return format(date1, 'yyyy-MM-dd') === format(date2, 'yyyy-MM-dd')
     }
 
     const days = getDaysInMonth(currentMonth)
@@ -172,9 +175,9 @@ export function DailyWorkCalendar({
                             return <div key={`empty-${index}`} className="p-2" />
                         }
 
-                        const status = getDayStatus(date)
+                        const status = getDayStatusForCalendar(date)
                         const isSelected = isSameDay(date, selectedDate)
-                        const isToday = isSameDay(date, today)
+                        const isTodayCalendar = isTodayDate(date)
                         const disabled = isDateDisabled(date)
                         const locked = isDateLocked(date)
                         const data = getDataForDate(date)
@@ -188,12 +191,12 @@ export function DailyWorkCalendar({
                                     "p-2 rounded-lg border transition-all text-center min-h-[60px] flex flex-col items-center justify-center gap-1",
                                     getStatusColor(status),
                                     isSelected && "ring-2 ring-primary ring-offset-2",
-                                    isToday && "font-bold",
+                                    isTodayCalendar && "font-bold",
                                     disabled && "opacity-50 cursor-not-allowed",
                                     !disabled && "hover:opacity-80 cursor-pointer"
                                 )}
                             >
-                                <span className={cn("text-sm", isToday && "underline")}>
+                                <span className={cn("text-sm", isTodayCalendar && "underline")}>
                                     {date.getDate()}
                                 </span>
                                 {data && data.totalHours > 0 && (
@@ -202,7 +205,7 @@ export function DailyWorkCalendar({
                                         {data.totalHours}h
                                     </span>
                                 )}
-                                {locked && !data?.hasSubmissions && date < today && (
+                                {locked && !data?.hasSubmissions && isPastDate(date) && (
                                     <AlertCircle className="h-3 w-3 text-red-500" />
                                 )}
                             </button>

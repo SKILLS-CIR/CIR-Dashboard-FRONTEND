@@ -4,19 +4,19 @@ import { cn } from "@/lib/utils"
 import { SubmissionStatus, AssignmentStatus, DayStatus } from "@/types/cir"
 
 const statusBadgeVariants = cva(
-    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+    " px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
     {
         variants: {
             status: {
-                PENDING: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400",
-                SUBMITTED: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400",
-                VERIFIED: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
-                REJECTED: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
-                IN_PROGRESS: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-400",
-                COMPLETED: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
-                OVERDUE: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
-                NOT_SUBMITTED: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400",
-                PARTIAL: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400",
+                PENDING: "  dark:text-white    text-black p-2.5",
+                SUBMITTED: "  dark:text-white    text-black p-2.5",
+                VERIFIED: "  dark:text-white    text-black p-2.5",
+                REJECTED: "  dark:text-white    text-black p-2.5",
+                IN_PROGRESS: "  dark:text-white    text-black p-2.5",
+                COMPLETED: "  dark:text-white    text-black p-2.5",
+                OVERDUE: "  dark:text-white    text-black p-2.5",
+                NOT_SUBMITTED: "  dark:text-white    text-black p-2.5",
+                PARTIAL: "  dark:text-white    text-black p-2.5",
             },
         },
         defaultVariants: {
@@ -26,8 +26,8 @@ const statusBadgeVariants = cva(
 )
 
 const statusIcons: Record<string, string> = {
-    PENDING: "⏳",
-    SUBMITTED: "📤",
+    PENDING: "",
+    SUBMITTED: "",
     VERIFIED: "✓",
     REJECTED: "✗",
     IN_PROGRESS: "🔄",
