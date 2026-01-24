@@ -70,9 +70,12 @@ export interface ChangePasswordDto {
 }
 
 // ==================== Departments ====================
+export type DepartmentType = 'TEACHING' | 'NON_TEACHING'
+
 export interface Department {
   id: string
   name: string
+  type?: DepartmentType
   description?: string
   subDepartments?: SubDepartment[]
   createdAt: string
@@ -82,17 +85,22 @@ export interface Department {
 export interface CreateDepartmentDto {
   name: string
   description?: string
+  type?: DepartmentType
 }
 
 export interface UpdateDepartmentDto {
   name?: string
   description?: string
+  type?: DepartmentType
 }
 
 // ==================== Sub-Departments ====================
+export type SubDepartmentType = 'QUANTS' | 'VERBALS' | 'SOFTSKILLS' | 'SKILLS' | 'ADMINISTRATION'
+
 export interface SubDepartment {
   id: string
   name: string
+  type?: SubDepartmentType
   description?: string
   departmentId: string
   department?: Department
@@ -105,11 +113,13 @@ export interface CreateSubDepartmentDto {
   name: string
   description?: string
   departmentId: string
+  type?: SubDepartmentType
 }
 
 export interface UpdateSubDepartmentDto {
   name?: string
   description?: string
+  type?: SubDepartmentType
 }
 
 // ==================== Responsibilities ====================
