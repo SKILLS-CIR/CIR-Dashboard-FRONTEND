@@ -2,7 +2,7 @@
 
 import { 
   Search, LogOut, Home, Users, FileText, User, Settings, BarChart, 
-  Building2, ClipboardList, Calendar, CheckSquare, FolderKanban 
+  Building2, ClipboardList, Calendar, CheckSquare, FolderKanban, FolderOpen 
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -117,6 +117,12 @@ const searchOptions: SearchOption[] = [
     label: "Assignments",
     href: "/manager/assignments",
     icon: <FolderKanban className="h-4 w-4" />,
+    roles: ["MANAGER"]
+  },
+  {
+    label: "Groups",
+    href: "/manager/responsibility-groups",
+    icon: <FolderOpen className="h-4 w-4" />,
     roles: ["MANAGER"]
   },
   {

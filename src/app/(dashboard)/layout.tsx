@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   Save,
   CalendarRange,
+  FolderOpen,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
@@ -109,6 +110,12 @@ const navigation: NavigationItem[] = [
     name: "Assignments",
     href: "/manager/assignments",
     icon: <ClipboardList className="w-5 h-5" />,
+    roles: ["MANAGER"]
+  },
+  {
+    name: "Groups",
+    href: "/manager/responsibility-groups",
+    icon: <FolderOpen className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
   {
