@@ -22,7 +22,6 @@ import {
     Briefcase,
 } from "lucide-react"
 import { getSubmissionsForDate, getToday } from "@/lib/responsibility-status"
-import DashboardHeader from "@/components/dashboard-header"
 
 interface DashboardStats {
     teamSize: number
@@ -113,7 +112,6 @@ export default function ManagerDashboardPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            {/* <DashboardHeader/> */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Manager Dashboard</h1>
@@ -121,7 +119,7 @@ export default function ManagerDashboardPage() {
                         Welcome back, {user?.name || 'Manager'}. Manage your team's work here.
                     </p>
                 </div>
-                {/* <CreateResponsibilityDialog onSuccess={() => window.location.reload()} /> */}
+                <CreateResponsibilityDialog onSuccess={() => window.location.reload()} />
             </div>
 
             {/* Stats Cards */}
@@ -194,10 +192,10 @@ export default function ManagerDashboardPage() {
                         </Button>
                     )}
                 </CardHeader>
-                {/* <CardContent>
+                <CardContent>
                     {pendingSubmissions.length === 0 ? (
                         <div className="text-center py-8">
-                            <CheckCircle className="h-12 w-12 text-blue-500 mx-auto mb-3" />
+                            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
                             <p className="text-muted-foreground">
                                 All caught up! No pending verifications.
                             </p>
@@ -230,7 +228,7 @@ export default function ManagerDashboardPage() {
                             ))}
                         </div>
                     )}
-                </CardContent> */}
+                </CardContent>
             </Card>
 
             {/* Quick Actions */}

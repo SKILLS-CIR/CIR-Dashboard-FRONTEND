@@ -75,12 +75,12 @@ const navigation: NavigationItem[] = [
     icon: <FileCheck className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
-  {
-    name: "Analytics",
-    href: "/admin/analytics",
-    icon: <BarChart3 className="w-5 h-5" />,
-    roles: ["ADMIN"]
-  },
+  // {
+  //   name: "Analytics",
+  //   href: "/admin/analytics",
+  //   icon: <BarChart3 className="w-5 h-5" />,
+  //   roles: ["ADMIN"]
+  // },
   {
     name: "Profile",
     href: "/admin/profile",

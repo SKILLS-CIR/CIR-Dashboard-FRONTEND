@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 import { useAuth } from "@/components/providers/auth-context"
 import { Sun, Moon, Bell, Globe, ChevronDown } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -404,8 +405,11 @@ export default function DashboardHeader() {
               className="flex items-center gap-2 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity hidden lg:flex"
               onClick={() => router.push(`/${userRole.toLowerCase()}`)}
             >
+                <span className="text-lg sm:text-xl font-bold">
+                <Image src="/logo.png" alt="CIR Logo" width={100} height={100} />
+              </span>
               <span className="text-lg sm:text-xl font-bold">
-                Work Manager
+                CIR DASHBOARD
               </span>
             </div>
 

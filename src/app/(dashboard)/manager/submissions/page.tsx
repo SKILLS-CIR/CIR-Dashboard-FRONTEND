@@ -354,6 +354,7 @@ export default function ManagerSubmissionsPage() {
             <Card>
                 <CardContent className="pt-6">
                     <div className="flex flex-col sm:flex-row gap-4">
+                        <p>Filter by date:</p>
                         {/* Date Picker */}
                         <Popover>
                             <PopoverTrigger asChild>
@@ -378,7 +379,7 @@ export default function ManagerSubmissionsPage() {
                         </Popover>
 
                         {/* Search */}
-                        <div className="relative flex-1">
+                        {/* <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 placeholder="Search staff by name or email..."
@@ -386,7 +387,7 @@ export default function ManagerSubmissionsPage() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-9"
                             />
-                        </div>
+                        </div> */}
                     </div>
                 </CardContent>
             </Card>
@@ -395,7 +396,7 @@ export default function ManagerSubmissionsPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card className="border-l-4 border-l-amber-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                        <CardTitle className="text-sm font-medium">VERIFICATION PENDING</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalCounts.pending}</div>
@@ -404,7 +405,7 @@ export default function ManagerSubmissionsPage() {
                 </Card>
                 <Card className="border-l-4 border-l-green-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Approved</CardTitle>
+                        <CardTitle className="text-sm font-medium">VERIFIED TODAY</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalCounts.approved}</div>
@@ -413,7 +414,7 @@ export default function ManagerSubmissionsPage() {
                 </Card>
                 <Card className="border-l-4 border-l-red-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+                        <CardTitle className="text-sm font-medium">REJECTED RESPONSIBILITIES</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalCounts.rejected}</div>
