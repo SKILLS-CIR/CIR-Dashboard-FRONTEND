@@ -7,7 +7,7 @@ import { Employee, Assignment, WorkSubmission } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SubmissionStatusBadge } from "@/components/ui/status-badge"
-import { CreateResponsibilityDialog } from "@/components/manager/create-responsibility-dialog"
+// import { CreateResponsibilityDialog } from "@/components/manager/create-responsibility-dialog"
 import Link from "next/link"
 import { format } from "date-fns"
 import {
@@ -119,7 +119,7 @@ export default function ManagerDashboardPage() {
                         Welcome back, {user?.name || 'Manager'}. Manage your team's work here.
                     </p>
                 </div>
-                <CreateResponsibilityDialog onSuccess={() => window.location.reload()} />
+                {/* <CreateResponsibilityDialog onSuccess={() => window.location.reload()} /> */}
             </div>
 
             {/* Stats Cards */}
@@ -152,7 +152,7 @@ export default function ManagerDashboardPage() {
 
                 <Card className="border-l-4 border-l-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+                        <CardTitle className="text-sm font-medium">Todays Verifications</CardTitle>
                         <Clock className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
@@ -202,7 +202,7 @@ export default function ManagerDashboardPage() {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {pendingSubmissions.map((submission) => (
+                            {/* {pendingSubmissions.map((submission) => (
                                 <div
                                     key={submission.id}
                                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -225,7 +225,8 @@ export default function ManagerDashboardPage() {
                                         </Button>
                                     </div>
                                 </div>
-                            ))}
+                            ))} */}
+                            Review {pendingSubmissions.length} pending submissions in the Submissions section.
                         </div>
                     )}
                 </CardContent>

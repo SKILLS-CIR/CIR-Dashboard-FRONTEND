@@ -137,7 +137,7 @@ export default function StaffWorkSubmissionsPage() {
 
     return (
         <div className="p-6 space-y-6">
-            <DashboardHeader/>
+            {/* <DashboardHeader/> */}
             
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={() => router.push('/staff')}>
@@ -152,7 +152,7 @@ export default function StaffWorkSubmissionsPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
+            {/* <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Days</CardTitle>
@@ -196,7 +196,7 @@ export default function StaffWorkSubmissionsPage() {
                         <p className="text-xs text-muted-foreground">Need attention</p>
                     </CardContent>
                 </Card>
-            </div>
+            </div> */}
 
             {/* Rejected Alert */}
             {stats.rejected > 0 && (
