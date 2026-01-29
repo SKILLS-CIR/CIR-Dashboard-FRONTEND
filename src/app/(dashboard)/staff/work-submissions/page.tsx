@@ -3,23 +3,31 @@
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { WorkSubmission, DayStatus } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SubmissionStatusBadge, DayStatusBadge } from "@/components/ui/status-badge"
 import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
 import { 
     FileCheck, 
     Clock, 
     CheckCircle, 
     XCircle, 
     AlertTriangle, 
-    Calendar,
     ArrowLeft,
-    ChevronRight
+    ChevronRight,
+    CalendarIcon,
+    X
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { getDayStatus } from "@/lib/responsibility-status"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface DayGroup {
     date: string
@@ -30,17 +38,21 @@ interface DayGroup {
     submissions: WorkSubmission[]
 }
 
+const ITEMS_PER_PAGE = 10
+
 export default function StaffWorkSubmissionsPage() {
     const router = useRouter()
-    const [submissions, setSubmissions] = useState<WorkSubmission[]>([])
+    const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
-
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+    const [currentPage, setCurrentPage] = useState(1)
+ 
     useEffect(() => {
         async function fetchSubmissions() {
             try {
                 const data = await api.workSubmissions.getAll()
-                setSubmissions(data)
+                setAllSubmissions(data)
             } catch (error) {
                 console.error("Failed to fetch submissions:", error)
             } finally {
@@ -51,11 +63,24 @@ export default function StaffWorkSubmissionsPage() {
         fetchSubmissions()
     }, [])
 
+    // Filter submissions based on selected date
+    const filteredSubmissions = useMemo(() => {
+        if (!selectedDate) {
+            return allSubmissions
+        }
+        
+        const dateStr = format(selectedDate, 'yyyy-MM-dd')
+        return allSubmissions.filter(s => {
+            const submissionDate = new Date((s as any).workDate || s.submittedAt)
+            return format(submissionDate, 'yyyy-MM-dd') === dateStr
+        })
+    }, [allSubmissions, selectedDate])
+
     // Group submissions by date
     const groupedByDay = useMemo((): DayGroup[] => {
         const dayMap = new Map<string, DayGroup>()
         
-        submissions.forEach(submission => {
+        filteredSubmissions.forEach(submission => {
             const workDate = (submission as any).workDate || submission.submittedAt
             const dateStr = format(new Date(workDate), 'yyyy-MM-dd')
             
@@ -95,7 +120,21 @@ export default function StaffWorkSubmissionsPage() {
         return Array.from(dayMap.values()).sort((a, b) => 
             new Date(b.date).getTime() - new Date(a.date).getTime()
         )
-    }, [submissions])
+    }, [filteredSubmissions])
+
+    // Paginate grouped days
+    const paginatedDays = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+        const endIndex = startIndex + ITEMS_PER_PAGE
+        return groupedByDay.slice(startIndex, endIndex)
+    }, [groupedByDay, currentPage])
+
+    const totalPages = Math.ceil(groupedByDay.length / ITEMS_PER_PAGE)
+
+    // Reset to page 1 when filter changes
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [selectedDate])
 
     const toggleDayExpanded = (date: string) => {
         setExpandedDays(prev => {
@@ -109,13 +148,17 @@ export default function StaffWorkSubmissionsPage() {
         })
     }
 
+    const clearDateFilter = () => {
+        setSelectedDate(undefined)
+    }
+
     // Stats - Use submission status directly (date-specific)
     const stats = useMemo(() => {
         // Count based on submission's own status
-        const pending = submissions.filter(s => (s.status || s.assignment?.status) === 'PENDING')
-        const submitted = submissions.filter(s => (s.status || s.assignment?.status) === 'SUBMITTED')
-        const verified = submissions.filter(s => (s.status || s.assignment?.status) === 'VERIFIED')
-        const rejected = submissions.filter(s => (s.status || s.assignment?.status) === 'REJECTED')
+        const pending = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'PENDING')
+        const submitted = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'SUBMITTED')
+        const verified = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'VERIFIED')
+        const rejected = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'REJECTED')
         
         return {
             pending: pending.length,
@@ -125,7 +168,7 @@ export default function StaffWorkSubmissionsPage() {
             totalDays: groupedByDay.length,
             verifiedDays: groupedByDay.filter(d => d.status === 'VERIFIED').length,
         }
-    }, [submissions, groupedByDay])
+    }, [filteredSubmissions, groupedByDay])
 
     if (isLoading) {
         return (
@@ -151,52 +194,56 @@ export default function StaffWorkSubmissionsPage() {
                 </div>
             </div>
 
-            {/* Stats */}
-            {/* <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Days</CardTitle>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalDays}</div>
-                        <p className="text-xs text-muted-foreground">Days with submissions</p>
-                    </CardContent>
-                </Card>
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                        <p className="text-sm font-medium">Filter by date:</p>
+                        
+                        {/* Date Picker */}
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-[240px] justify-start text-left font-normal",
+                                            !selectedDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={setSelectedDate}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            
+                            {selectedDate && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={clearDateFilter}
+                                    className="h-9 w-9"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Verified Days</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.verifiedDays}</div>
-                        <p className="text-xs text-muted-foreground">Fully approved</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-                        <Clock className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.submitted}</div>
-                        <p className="text-xs text-muted-foreground">Awaiting verification</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-                        <XCircle className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
-                        <p className="text-xs text-muted-foreground">Need attention</p>
-                    </CardContent>
-                </Card>
-            </div> */}
+                        {selectedDate && (
+                            <p className="text-sm text-muted-foreground">
+                                Showing submissions for {format(selectedDate, "PPP")}
+                            </p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Rejected Alert */}
             {stats.rejected > 0 && (
@@ -219,89 +266,138 @@ export default function StaffWorkSubmissionsPage() {
                     <CardTitle>Submission History by Day</CardTitle>
                     <CardDescription>
                         {groupedByDay.length} day{groupedByDay.length !== 1 ? 's' : ''} with work submissions
+                        {selectedDate && ` (filtered)`}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {groupedByDay.length === 0 ? (
                         <div className="text-center py-12">
-                            <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                             <p className="text-muted-foreground">
-                                No submissions yet. Go to your dashboard to submit today's work.
+                                {selectedDate 
+                                    ? `No submissions found for ${format(selectedDate, "PPP")}`
+                                    : "No submissions yet. Go to your dashboard to submit today's work."
+                                }
                             </p>
-                            <Button className="mt-4" onClick={() => router.push('/staff')}>
-                                Go to Dashboard
-                            </Button>
+                            {selectedDate ? (
+                                <Button className="mt-4" onClick={clearDateFilter}>
+                                    Clear Filter
+                                </Button>
+                            ) : (
+                                <Button className="mt-4" onClick={() => router.push('/staff')}>
+                                    Go to Dashboard
+                                </Button>
+                            )}
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {groupedByDay.map((day) => (
-                                <div key={day.date} className="border rounded-lg overflow-hidden">
-                                    {/* Day Header */}
-                                    <button
-                                        onClick={() => toggleDayExpanded(day.date)}
-                                        className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <DayStatusBadge status={day.status} />
-                                            <div className="text-left">
-                                                <p className="font-medium">{day.displayDate}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {day.submissions.length} submission{day.submissions.length !== 1 ? 's' : ''} • {day.totalHours} total hours
-                                                    {day.verifiedHours > 0 && ` • ${day.verifiedHours} verified`}
-                                                </p>
+                        <>
+                            <div className="space-y-3">
+                                {paginatedDays.map((day) => (
+                                    <div key={day.date} className="border rounded-lg overflow-hidden">
+                                        {/* Day Header */}
+                                        <button
+                                            onClick={() => toggleDayExpanded(day.date)}
+                                            className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <DayStatusBadge status={day.status} />
+                                                <div className="text-left">
+                                                    <p className="font-medium">{day.displayDate}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {day.submissions.length} submission{day.submissions.length !== 1 ? 's' : ''} • {day.totalHours} total hours
+                                                        {day.verifiedHours > 0 && ` • ${day.verifiedHours} verified`}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <ChevronRight className={`h-5 w-5 transition-transform ${expandedDays.has(day.date) ? 'rotate-90' : ''}`} />
-                                    </button>
-                                    
-                                    {/* Expanded Submissions */}
-                                    {expandedDays.has(day.date) && (
-                                        <div className="border-t bg-muted/30 p-4 space-y-3">
-                                            {day.submissions.map((submission) => {
-                                                // Use submission.status FIRST (per-submission status from DB)
-                                                // Only fall back to assignment.status for legacy data
-                                                const status = submission.status || submission.assignment?.status || 'SUBMITTED'
-                                                return (
-                                                    <div
-                                                        key={submission.id}
-                                                        className="flex items-center justify-between p-3 bg-background rounded-lg border"
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                                                                status === 'VERIFIED' ? 'bg-green-100 dark:bg-green-900' :
-                                                                status === 'REJECTED' ? 'bg-red-100 dark:bg-red-900' :
-                                                                status === 'SUBMITTED' ? 'bg-blue-100 dark:bg-blue-900' :
-                                                                'bg-amber-100 dark:bg-amber-900'
-                                                            }`}>
-                                                                {status === 'VERIFIED' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                                                                {status === 'REJECTED' && <XCircle className="h-4 w-4 text-red-600" />}
-                                                                {status === 'SUBMITTED' && <FileCheck className="h-4 w-4 text-blue-600" />}
-                                                                {status === 'PENDING' && <Clock className="h-4 w-4 text-amber-600" />}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-medium text-sm">
-                                                                    {submission.assignment?.responsibility?.title || 'Work Submission'}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {(submission as any).hoursWorked || 0} hours
-                                                                    {submission.verifiedAt && ` • Verified ${new Date(submission.verifiedAt).toLocaleDateString()}`}
-                                                                </p>
-                                                                {status === 'REJECTED' && submission.rejectionReason && (
-                                                                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                                                        Reason: {submission.rejectionReason}
+                                            <ChevronRight className={`h-5 w-5 transition-transform ${expandedDays.has(day.date) ? 'rotate-90' : ''}`} />
+                                        </button>
+                                        
+                                        {/* Expanded Submissions */}
+                                        {expandedDays.has(day.date) && (
+                                            <div className="border-t bg-muted/30 p-4 space-y-3">
+                                                {day.submissions.map((submission) => {
+                                                    // Use submission.status FIRST (per-submission status from DB)
+                                                    // Only fall back to assignment.status for legacy data
+                                                    const status = submission.status || submission.assignment?.status || 'SUBMITTED'
+                                                    return (
+                                                        <div
+                                                            key={submission.id}
+                                                            className="flex items-center justify-between p-3 bg-background rounded-lg border"
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                                                                    status === 'VERIFIED' ? 'bg-green-100 dark:bg-green-900' :
+                                                                    status === 'REJECTED' ? 'bg-red-100 dark:bg-red-900' :
+                                                                    status === 'SUBMITTED' ? 'bg-blue-100 dark:bg-blue-900' :
+                                                                    'bg-amber-100 dark:bg-amber-900'
+                                                                }`}>
+                                                                    {status === 'VERIFIED' && <CheckCircle className="h-4 w-4 text-green-600" />}
+                                                                    {status === 'REJECTED' && <XCircle className="h-4 w-4 text-red-600" />}
+                                                                    {status === 'SUBMITTED' && <FileCheck className="h-4 w-4 text-blue-600" />}
+                                                                    {status === 'PENDING' && <Clock className="h-4 w-4 text-amber-600" />}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium text-sm">
+                                                                        {submission.assignment?.responsibility?.title || 'Work Submission'}
                                                                     </p>
-                                                                )}
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {(submission as any).hoursWorked || 0} hours
+                                                                        {submission.verifiedAt && ` • Verified ${new Date(submission.verifiedAt).toLocaleDateString()}`}
+                                                                    </p>
+                                                                    {status === 'REJECTED' && submission.rejectionReason && (
+                                                                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                                                            Reason: {submission.rejectionReason}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="border border-black dark:border-white rounded-none"
+                                                                    onClick={() => router.push(`/staff/work-submissions/${submission.id}`)}
+                                                                >
+                                                                    VIEW SUBMISSION
+                                                                </Button>
+                                                                <SubmissionStatusBadge status={status as any} />
                                                             </div>
                                                         </div>
-                                                        <SubmissionStatusBadge status={status as any} />
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between mt-6 pt-6 border-t">
+                                    <p className="text-sm text-muted-foreground">
+                                        Page {currentPage} of {totalPages}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            Previous
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>

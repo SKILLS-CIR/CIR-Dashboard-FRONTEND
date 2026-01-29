@@ -55,6 +55,7 @@ export default function AdminWorkSubmissionsPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [statusFilter, setStatusFilter] = useState<string>("all")
     const [departmentFilter, setDepartmentFilter] = useState<string>("all")
+    const [subdepartmentFilter,setSubdepartmentFilter] = useState<string>("all")
 
     // View/Verify dialog state
     const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -126,10 +127,15 @@ export default function AdminWorkSubmissionsPage() {
                 const { department } = getEmployeeDepartmentInfo(s.staffId)
                 if (!department || String(department.id) !== departmentFilter) return false
             }
+             // Subdepartment filter
+            if (subdepartmentFilter !== "all") {
+                const { subDepartment } = getEmployeeDepartmentInfo(s.staffId)
+                if (!subDepartment || String(subDepartment.id) !== subdepartmentFilter) return false
+            }
 
             return true
         })
-    }, [submissions, searchQuery, statusFilter, departmentFilter, employees, departments, subDepartments])
+    }, [submissions, searchQuery, statusFilter, departmentFilter, subdepartmentFilter, employees, departments, subDepartments])
 
     function openViewDialog(submission: WorkSubmission) {
         setSelectedSubmission(submission)
@@ -198,6 +204,20 @@ export default function AdminWorkSubmissionsPage() {
                                 {departments.map((dept) => (
                                     <SelectItem key={dept.id} value={String(dept.id)}>
                                         {dept.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                           <Select value={subdepartmentFilter} onValueChange={setSubdepartmentFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <Building2 className="h-4 w-4 mr-2" />
+                                <SelectValue placeholder="Subdepartment" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Subdepartments</SelectItem>
+                                {subDepartments.map((subdept) => (
+                                    <SelectItem key={subdept.id} value={String(subdept.id)}>
+                                        {subdept.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -293,31 +313,35 @@ export default function AdminWorkSubmissionsPage() {
                                                     <Button 
                                                         variant="ghost" 
                                                         size="sm"
+                                                        className="text-black dark:text-white border border-black dark:border-white p-2 dark:bg-black rounded-none"
                                                         onClick={() => openViewDialog(submission)}
                                                     >
-                                                        <Eye className="h-4 w-4" />
+                                                        {/* <Eye className="h-4 w-4" /> */}
+                                                        VIEW
                                                     </Button>
                                                     {canVerify && (
                                                         <>
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="sm"
-                                                                className="text-green-600 hover:text-green-700"
+                                                                className="text-black dark:text-white border border-black dark:border-white p-2 dark:bg-black rounded-none"
                                                                 onClick={() => {
                                                                     setSelectedSubmission(submission)
                                                                     setVerifyComment("")
                                                                     handleVerify(true)
                                                                 }}
                                                             >
-                                                                <CheckCircle className="h-4 w-4" />
+                                                                {/* <CheckCircle className="h-4 w-4" /> */}
+                                                                VERIFY
                                                             </Button>
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="sm"
-                                                                className="text-red-600 hover:text-red-700"
+                                                                className="text-black dark:text-white border border-black dark:border-white p-2 dark:bg-black rounded-none"
                                                                 onClick={() => openViewDialog(submission)}
                                                             >
-                                                                <XCircle className="h-4 w-4" />
+                                                                {/* <XCircle className="h-4 w-4" /> */}
+                                                                REJECT
                                                             </Button>
                                                         </>
                                                     )}

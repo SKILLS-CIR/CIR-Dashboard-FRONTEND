@@ -280,7 +280,7 @@ export default function StaffDashboardPage() {
                             </Badge>
                             <Badge variant="outline" className="gap-1">
                                 <Clock className="h-3 w-3 text-amber-500" />
-                                {pendingCount} Pending
+                                {pendingCount} Not Verified
                             </Badge>
                         </div>
                     )}
@@ -334,7 +334,7 @@ export default function StaffDashboardPage() {
                                         ) : (
                                             <Badge variant="outline" className="text-amber-600">
                                                 <Clock className="h-3 w-3 mr-1" />
-                                                Pending
+                                                Not Verified
                                             </Badge>
                                         )}
                                     </div>
@@ -380,6 +380,19 @@ export default function StaffDashboardPage() {
                             </CardTitle>
                             <CardDescription>
                                 Create personal responsibilities
+                            </CardDescription>
+                        </CardHeader>
+                    </Link>
+                </Card>
+                  <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    <Link href="/staff/analytics">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <FileText className="h-5 w-5" />
+                                My Analytics
+                            </CardTitle>
+                            <CardDescription>
+                               View your work performance analytics
                             </CardDescription>
                         </CardHeader>
                     </Link>

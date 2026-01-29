@@ -494,9 +494,9 @@ function openResubmitDialog(submission: WorkSubmission) {
             {/* <DashboardHeader/> */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Work Calendar</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Submit Work </h1>
                     <p className="text-muted-foreground">
-                        View your assignments and submit daily work
+                         Submit daily work and track your responsibilities
                     </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={fetchData} className="border-foreground/20">
@@ -696,7 +696,7 @@ function openResubmitDialog(submission: WorkSubmission) {
                                                 </div>
                                                 <div>
                                                     <h3 className="font-semibold text-lg">
-                                                        {todayUnsubmittedAssignments.length} Pending Responsibility{todayUnsubmittedAssignments.length !== 1 ? 'ies' : 'y'}
+                                                        {todayUnsubmittedAssignments.length} Pending Responsibilit{todayUnsubmittedAssignments.length !== 1 ? 'ies' : 'y'}
                                                     </h3>
                                                     <p className="text-muted-foreground text-sm">
                                                         Ready for submission
