@@ -72,18 +72,16 @@ export default function ProfilePage() {
 
   async function handleAvatarSave(newAvatarUrl: string, newGender: "male" | "female") {
     try {
-      const response = await fetch("/api/profile/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ avatarUrl: newAvatarUrl, gender: newGender }),
+      await api.profile.updateAvatar({
+        avatarUrl: newAvatarUrl,
+        gender: newGender,
       })
-      if (!response.ok) throw new Error("Failed to save avatar")
       setAvatarUrl(newAvatarUrl)
       setGender(newGender)
       toast.success("Avatar updated successfully")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save avatar:", error)
-      toast.error("Failed to update avatar")
+      toast.error(error.message || "Failed to update avatar")
       throw error
     }
   }

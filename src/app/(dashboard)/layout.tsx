@@ -23,6 +23,7 @@ import {
   Save,
   CalendarRange,
   FolderOpen,
+  Calendar1,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
@@ -95,20 +96,20 @@ const navigation: NavigationItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
+  // {
+  //   name: "Review Submissions",
+  //   href: "/manager/submissions",
+  //   icon: <FileCheck className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
+  // {
+  //   name: "Calender",
+  //   href: "/manager/responsibilities",
+  //   icon: <Calendar1 className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
   {
-    name: "Review Submissions",
-    href: "/manager/submissions",
-    icon: <FileCheck className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
-  {
-    name: "Responsibilities",
-    href: "/manager/responsibilities",
-    icon: <Briefcase className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
-  {
-    name: "Assignments",
+    name: "Manage Duty",
     href: "/manager/assignments",
     icon: <ClipboardList className="w-5 h-5" />,
     roles: ["MANAGER"]
@@ -120,7 +121,7 @@ const navigation: NavigationItem[] = [
     roles: ["MANAGER"]
   },
   {
-    name: "My Staff",
+    name: "Staff",
     href: "/manager/staff",
     icon: <UserCheck className="w-5 h-5" />,
     roles: ["MANAGER"]
@@ -248,6 +249,52 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated || !role) return null
+
+  // Role-based path access control
+  const rolePathMap: Record<Role, string> = {
+    'ADMIN': '/admin',
+    'MANAGER': '/manager',
+    'STAFF': '/staff',
+  }
+
+  const allowedPathPrefix = rolePathMap[role]
+  const isAuthorized = pathname.startsWith(allowedPathPrefix)
+
+  // Show 403 Forbidden if user is accessing unauthorized path
+  if (!isAuthorized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="h-24 w-24 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+            <svg
+              className="h-12 w-12 text-destructive"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold text-destructive mb-2">403</h1>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-6">
+            You don&apos;t have permission to access this page. Please navigate to your authorized dashboard.
+          </p>
+          <Button
+            onClick={() => router.push(getDashboardUrl(role))}
+            className="w-full sm:w-auto"
+          >
+            Go to My Dashboard
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item =>

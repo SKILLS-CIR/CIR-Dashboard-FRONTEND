@@ -39,7 +39,8 @@ import {
 } from '@/types/cir'
 
 // API Base URL - configurable via environment variable
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+
 
 // Token storage (memory-based for security, with localStorage + cookie fallback for persistence)
 let accessToken: string | null = null
@@ -453,6 +454,18 @@ export const responsibilityGroupsApi = {
         }),
 }
 
+// ==================== Profile API ====================
+export const profileApi = {
+    get: (): Promise<any> =>
+        fetchApi('/profile'),
+
+    updateAvatar: (data: { avatarUrl: string; gender: "male" | "female" }): Promise<any> =>
+        fetchApi('/profile/avatar', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+}
+
 // ==================== Unified API Export ====================
 export const api = {
     auth: authApi,
@@ -464,6 +477,7 @@ export const api = {
     workSubmissions: workSubmissionsApi,
     comments: commentsApi,
     responsibilityGroups: responsibilityGroupsApi,
+    profile: profileApi,
 }
 
 export default api

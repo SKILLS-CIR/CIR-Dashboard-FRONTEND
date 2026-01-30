@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Loader2, Upload, Image as ImageIcon } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Image from "next/image"
+import { API_BASE_URL, getToken } from "@/lib/api"
 
 interface AvatarSelectorProps {
   currentAvatar?: string
@@ -90,8 +91,12 @@ export function AvatarSelector({
         formData.append("file", uploadedFile)
         formData.append("gender", selectedGender)
 
-        const response = await fetch("/api/profile/avatar/upload", {
+        const token = getToken()
+        const response = await fetch(`${API_BASE_URL}/profile/avatar/upload`, {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           body: formData,
         })
 
@@ -169,7 +174,7 @@ export function AvatarSelector({
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                
+
                 {uploadPreview ? (
                   <div className="space-y-4">
                     <Avatar className="h-32 w-32 mx-auto">
@@ -209,8 +214,8 @@ export function AvatarSelector({
               {/* Gender Selection for Upload */}
               <div className="space-y-2">
                 <Label>Select Gender</Label>
-                <RadioGroup 
-                  value={selectedGender} 
+                <RadioGroup
+                  value={selectedGender}
                   onValueChange={(value) => setSelectedGender(value as "male" | "female")}
                   className="flex gap-4"
                 >
@@ -228,8 +233,8 @@ export function AvatarSelector({
 
             {/* Male Avatars Tab */}
             <TabsContent value="male">
-              <RadioGroup 
-                value={selectedAvatar} 
+              <RadioGroup
+                value={selectedAvatar}
                 onValueChange={(value) => {
                   setSelectedAvatar(value)
                   setSelectedGender("male")
@@ -247,11 +252,10 @@ export function AvatarSelector({
                       />
                       <Label
                         htmlFor={`male-avatar-${index}`}
-                        className={`cursor-pointer rounded-full p-1 transition-all ${
-                          selectedAvatar === avatarUrl && !uploadPreview
+                        className={`cursor-pointer rounded-full p-1 transition-all ${selectedAvatar === avatarUrl && !uploadPreview
                             ? "ring-4 ring-blue-600 ring-offset-2"
                             : "hover:ring-2 hover:ring-gray-300"
-                        }`}
+                          }`}
                       >
                         <Avatar className="h-20 w-20">
                           <AvatarImage src={avatarUrl} alt={`Male Avatar ${index + 1}`} />
@@ -266,8 +270,8 @@ export function AvatarSelector({
 
             {/* Female Avatars Tab */}
             <TabsContent value="female">
-              <RadioGroup 
-                value={selectedAvatar} 
+              <RadioGroup
+                value={selectedAvatar}
                 onValueChange={(value) => {
                   setSelectedAvatar(value)
                   setSelectedGender("female")
@@ -285,11 +289,10 @@ export function AvatarSelector({
                       />
                       <Label
                         htmlFor={`female-avatar-${index}`}
-                        className={`cursor-pointer rounded-full p-1 transition-all ${
-                          selectedAvatar === avatarUrl && !uploadPreview
+                        className={`cursor-pointer rounded-full p-1 transition-all ${selectedAvatar === avatarUrl && !uploadPreview
                             ? "ring-4 ring-blue-600 ring-offset-2"
                             : "hover:ring-2 hover:ring-gray-300"
-                        }`}
+                          }`}
                       >
                         <Avatar className="h-20 w-20">
                           <AvatarImage src={avatarUrl} alt={`Female Avatar ${index + 1}`} />

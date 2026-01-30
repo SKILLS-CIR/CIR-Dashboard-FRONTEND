@@ -5,7 +5,7 @@ import { api } from "@/lib/api"
 import { Responsibility, ResponsibilityGroup } from "@/types/cir"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CreateResponsibilityDialog } from "@/components/manager/create-responsibility-dialog"
+// import { CreateResponsibilityDialog } from "@/components/manager/create-responsibility-dialog"
 import { ChevronLeft, ChevronRight, FolderOpen } from "lucide-react"
 import {
     format,
@@ -298,7 +298,6 @@ export default function ManagerResponsibilitiesPage() {
                                 <ChevronRight className="h-5 w-5" />
                             </Button>
                         </div>
-                        <CreateResponsibilityDialog onSuccess={fetchData} />
                     </div>
 
                     {/* Days of Week Header */}
