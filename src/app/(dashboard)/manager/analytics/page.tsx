@@ -13,12 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { 
-    BarChart3, 
-    TrendingUp, 
-    FileCheck, 
-    Clock, 
-    CalendarIcon, 
+import {
+    BarChart3,
+    TrendingUp,
+    FileCheck,
+    Clock,
+    CalendarIcon,
     CheckCircle,
     XCircle,
     Users,
@@ -58,7 +58,7 @@ export default function ManagerAnalyticsPage() {
 
     async function fetchData() {
         if (!user?.subDepartmentId) return
-        
+
         try {
             const [allSubmissions, allAssignments, allEmployees, allResponsibilities, allSubDepts] = await Promise.all([
                 api.workSubmissions.getAll(),
@@ -67,26 +67,26 @@ export default function ManagerAnalyticsPage() {
                 api.responsibilities.getAll(),
                 api.subDepartments.getAll(),
             ])
-            
+
             // Get manager's sub-department
             const managerSubDept = allSubDepts.find(sd => String(sd.id) === String(user.subDepartmentId))
             setSubDepartment(managerSubDept || null)
-            
+
             // Filter staff in manager's sub-department
-            const deptStaff = allEmployees.filter(e => 
+            const deptStaff = allEmployees.filter(e =>
                 String(e.subDepartmentId) === String(user.subDepartmentId) && e.role === 'STAFF'
             )
             setStaffList(deptStaff)
-            
+
             // Get staff IDs
             const staffIds = deptStaff.map(s => String(s.id))
-            
+
             // Filter submissions and assignments for staff in this sub-department
             setSubmissions(allSubmissions.filter(s => staffIds.includes(String(s.staffId))))
             setAssignments(allAssignments.filter(a => staffIds.includes(String(a.staffId))))
-            
+
             // Filter responsibilities for this sub-department
-            setResponsibilities(allResponsibilities.filter(r => 
+            setResponsibilities(allResponsibilities.filter(r =>
                 String(r.subDepartmentId) === String(user.subDepartmentId)
             ))
         } catch (error) {
@@ -117,7 +117,7 @@ export default function ManagerAnalyticsPage() {
             .filter(s => s.status === 'VERIFIED')
             .reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
         const approvalRate = total > 0 ? Math.round((verified / total) * 100) : 0
-        
+
         return { total, verified, pending, rejected, totalHours, verifiedHours, approvalRate }
     }, [filteredSubmissions])
 
@@ -132,7 +132,7 @@ export default function ManagerAnalyticsPage() {
                 .filter(s => s.status === 'VERIFIED')
                 .reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
             const approvalRate = staffSubmissions.length > 0 ? Math.round((verified / staffSubmissions.length) * 100) : 0
-            
+
             return {
                 ...staff,
                 total: staffSubmissions.length,
@@ -148,16 +148,16 @@ export default function ManagerAnalyticsPage() {
     // Daily data for charts
     const dailyData = useMemo(() => {
         const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to })
-        
+
         return days.map(day => {
-            const daySubmissions = filteredSubmissions.filter(s => 
+            const daySubmissions = filteredSubmissions.filter(s =>
                 isSameDay(new Date(s.workDate || s.submittedAt), day)
             )
             const verified = daySubmissions.filter(s => s.status === 'VERIFIED').length
             const pending = daySubmissions.filter(s => s.status === 'SUBMITTED' || s.status === 'PENDING').length
             const rejected = daySubmissions.filter(s => s.status === 'REJECTED').length
             const hours = daySubmissions.reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
-            
+
             return {
                 date: format(day, 'MMM d'),
                 fullDate: format(day, 'yyyy-MM-dd'),
@@ -175,11 +175,11 @@ export default function ManagerAnalyticsPage() {
         return responsibilities.map(resp => {
             const respAssignments = assignments.filter(a => String(a.responsibilityId) === String(resp.id))
             const assignedStaff = new Set(respAssignments.map(a => String(a.staffId))).size
-            const respSubmissions = filteredSubmissions.filter(s => 
+            const respSubmissions = filteredSubmissions.filter(s =>
                 respAssignments.some(a => String(a.id) === String(s.assignmentId))
             )
             const verified = respSubmissions.filter(s => s.status === 'VERIFIED').length
-            
+
             return {
                 ...resp,
                 assignedStaff,
@@ -269,7 +269,7 @@ export default function ManagerAnalyticsPage() {
                 backgroundColor: 'rgba(0, 0, 0, 0.8)',
                 padding: 12,
                 callbacks: {
-                    label: function(context: any) {
+                    label: function (context: any) {
                         const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
                         const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0
                         return `${context.label}: ${context.raw} (${percentage}%)`
@@ -528,8 +528,8 @@ export default function ManagerAnalyticsPage() {
                             <ScrollArea className="h-[400px]">
                                 <div className="space-y-3">
                                     {staffStats.map((staff) => (
-                                        <div 
-                                            key={staff.id} 
+                                        <div
+                                            key={staff.id}
                                             className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex items-center gap-3">
@@ -598,8 +598,8 @@ export default function ManagerAnalyticsPage() {
                             <ScrollArea className="h-[500px]">
                                 <div className="space-y-3">
                                     {responsibilityStats.map((resp) => (
-                                        <div 
-                                            key={resp.id} 
+                                        <div
+                                            key={resp.id}
                                             className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex items-center justify-between mb-2">

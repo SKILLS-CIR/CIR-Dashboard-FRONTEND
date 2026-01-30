@@ -43,6 +43,10 @@ export interface Employee {
   department?: Department
   subDepartment?: SubDepartment
   subDepartmentId?: string
+  avatarUrl?: string
+  gender?: 'MALE' | 'FEMALE'
+  jobTitle?: string
+  isActive?: boolean
   createdAt: string
   updatedAt: string
 }

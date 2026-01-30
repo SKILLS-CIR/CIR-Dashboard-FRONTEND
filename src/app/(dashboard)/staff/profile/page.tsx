@@ -27,12 +27,9 @@ export default function ProfilePage() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch("/api/profile")
-                if (response.ok) {
-                    const data = await response.json()
-                    setAvatarUrl(data.staff?.avatarUrl || data.avatarUrl)
-                    setGender(data.staff?.gender || data.gender || "male")
-                }
+                const data = await api.profile.get()
+                setAvatarUrl(data.staff?.avatarUrl || data.avatarUrl)
+                setGender(data.staff?.gender || data.gender || "male")
             } catch (error) {
                 console.error("Failed to fetch profile:", error)
             }

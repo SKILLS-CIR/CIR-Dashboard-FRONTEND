@@ -99,7 +99,7 @@ export default function AdminUsersPage() {
         api.departments.getAll(),
         api.subDepartments.getAll(),
       ])
-      
+
       // Enrich employees with department and subDepartment objects
       const enrichedEmployees = employeesData.map(emp => {
         const department = deptsData.find(d => d.id === emp.departmentId)
@@ -110,7 +110,7 @@ export default function AdminUsersPage() {
           subDepartment: subDepartment || emp.subDepartment,
         }
       })
-      
+
       setEmployees(enrichedEmployees)
       setFilteredEmployees(enrichedEmployees)
       setDepartments(deptsData)
@@ -353,8 +353,8 @@ export default function AdminUsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>Department <span className="text-red-500">*</span></Label>
-                <Select 
-                  value={formDepartmentId} 
+                <Select
+                  value={formDepartmentId}
                   onValueChange={(v) => {
                     setFormDepartmentId(v)
                     setFormSubDepartmentId("") // Reset sub-department when department changes
@@ -374,8 +374,8 @@ export default function AdminUsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>Sub-Department</Label>
-                <Select 
-                  value={formSubDepartmentId || "none"} 
+                <Select
+                  value={formSubDepartmentId || "none"}
                   onValueChange={(v) => setFormSubDepartmentId(v === "none" ? "" : v)}
                   disabled={!formDepartmentId}
                 >
@@ -546,8 +546,8 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-2">
               <Label>Department</Label>
-              <Select 
-                value={editDepartmentId || "none"} 
+              <Select
+                value={editDepartmentId || "none"}
                 onValueChange={(v) => {
                   setEditDepartmentId(v === "none" ? "" : v)
                   setEditSubDepartmentId("") // Reset sub-department when department changes
@@ -568,8 +568,8 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-2">
               <Label>Sub-Department</Label>
-              <Select 
-                value={editSubDepartmentId || "none"} 
+              <Select
+                value={editSubDepartmentId || "none"}
                 onValueChange={(v) => setEditSubDepartmentId(v === "none" ? "" : v)}
                 disabled={!editDepartmentId}
               >
@@ -692,8 +692,8 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={() => setResetPasswordDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleResetPassword} 
+            <Button
+              onClick={handleResetPassword}
               disabled={isResettingPassword || !newPassword || !confirmPassword}
             >
               {isResettingPassword ? "Resetting..." : "Reset Password"}

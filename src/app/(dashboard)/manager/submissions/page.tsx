@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { SubmissionStatusBadge } from "@/components/ui/status-badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -416,6 +416,9 @@ export default function ManagerSubmissionsPage() {
                                     <CardContent className="p-4">
                                         <div className="flex items-start gap-3">
                                             <Avatar className="h-10 w-10">
+                                                {summary.staff.avatarUrl && (
+                                                    <AvatarImage src={summary.staff.avatarUrl} alt={summary.staff.name || 'Staff'} />
+                                                )}
                                                 <AvatarFallback className="bg-primary/10 text-primary">
                                                     {getInitials(summary.staff.name || 'U')}
                                                 </AvatarFallback>
@@ -468,6 +471,9 @@ export default function ManagerSubmissionsPage() {
                             {selectedStaff && (
                                 <>
                                     <Avatar className="h-8 w-8">
+                                        {selectedStaff.staff.avatarUrl && (
+                                            <AvatarImage src={selectedStaff.staff.avatarUrl} alt={selectedStaff.staff.name || 'Staff'} />
+                                        )}
                                         <AvatarFallback className="bg-primary/10 text-primary text-sm">
                                             {getInitials(selectedStaff.staff.name || 'U')}
                                         </AvatarFallback>
@@ -535,7 +541,7 @@ export default function ManagerSubmissionsPage() {
             </Dialog>
 
             {/* Review Dialog */}
-           
+
         </div>
     )
 }

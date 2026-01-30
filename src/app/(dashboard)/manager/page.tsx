@@ -63,14 +63,14 @@ export default function ManagerDashboardPage() {
         from: subDays(new Date(), 30),
         to: new Date(),
     })
-    
+
     const today = useMemo(() => getToday(), [])
 
     // SINGLE unified data fetching function
     useEffect(() => {
         async function fetchData() {
             if (!user?.subDepartmentId) return
-            
+
             try {
                 setIsLoading(true)
                 const [allSubmissions, allAssignments, allEmployees, allResponsibilities, allSubDepts] = await Promise.all([
@@ -80,32 +80,32 @@ export default function ManagerDashboardPage() {
                     api.responsibilities.getAll(),
                     api.subDepartments.getAll(),
                 ])
-                
+
                 // Get manager's sub-department
                 const managerSubDept = allSubDepts.find(sd => String(sd.id) === String(user.subDepartmentId))
                 setSubDepartment(managerSubDept || null)
-                
+
                 // Filter staff in manager's sub-department
-                const deptStaff = allEmployees.filter(e => 
+                const deptStaff = allEmployees.filter(e =>
                     String(e.subDepartmentId) === String(user.subDepartmentId) && e.role === 'STAFF'
                 )
                 setStaffList(deptStaff)
-                
+
                 // Get staff IDs
                 const staffIds = deptStaff.map(s => String(s.id))
-                
+
                 // Filter submissions and assignments for staff in this sub-department
                 const deptSubmissions = allSubmissions.filter(s => staffIds.includes(String(s.staffId)))
                 setSubmissions(deptSubmissions)
                 setAssignments(allAssignments.filter(a => staffIds.includes(String(a.staffId))))
-                
+
                 // Filter responsibilities for this sub-department
-                setResponsibilities(allResponsibilities.filter(r => 
+                setResponsibilities(allResponsibilities.filter(r =>
                     String(r.subDepartmentId) === String(user.subDepartmentId)
                 ))
 
                 // Get pending submissions (SUBMITTED status)
-                const allPending = deptSubmissions.filter(s => 
+                const allPending = deptSubmissions.filter(s =>
                     s.status === 'SUBMITTED' || s.assignment?.status === 'SUBMITTED'
                 )
                 setPendingSubmissions(allPending.slice(0, 5))
@@ -142,17 +142,17 @@ export default function ManagerDashboardPage() {
     // Dashboard stats (for top cards - based on TODAY only)
     const dashboardStats = useMemo(() => {
         const todaySubmissions = getSubmissionsForDate(submissions, today)
-        
+
         return {
             teamSize: staffList.length,
             totalAssignments: assignments.length,
-            pendingVerifications: todaySubmissions.filter(s => 
+            pendingVerifications: todaySubmissions.filter(s =>
                 s.status === 'SUBMITTED' || s.assignment?.status === 'SUBMITTED'
             ).length,
-            verifiedCount: todaySubmissions.filter(s => 
+            verifiedCount: todaySubmissions.filter(s =>
                 s.status === 'VERIFIED' || s.assignment?.status === 'VERIFIED'
             ).length,
-            rejectedCount: todaySubmissions.filter(s => 
+            rejectedCount: todaySubmissions.filter(s =>
                 s.status === 'REJECTED' || s.assignment?.status === 'REJECTED'
             ).length,
         }
@@ -169,7 +169,7 @@ export default function ManagerDashboardPage() {
             .filter(s => s.status === 'VERIFIED')
             .reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
         const approvalRate = total > 0 ? Math.round((verified / total) * 100) : 0
-        
+
         return { total, verified, pending, rejected, totalHours, verifiedHours, approvalRate }
     }, [filteredSubmissions])
 
@@ -184,7 +184,7 @@ export default function ManagerDashboardPage() {
                 .filter(s => s.status === 'VERIFIED')
                 .reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
             const approvalRate = staffSubmissions.length > 0 ? Math.round((verified / staffSubmissions.length) * 100) : 0
-            
+
             return {
                 ...staff,
                 total: staffSubmissions.length,
@@ -200,16 +200,16 @@ export default function ManagerDashboardPage() {
     // Daily data for charts
     const dailyData = useMemo(() => {
         const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to })
-        
+
         return days.map(day => {
-            const daySubmissions = filteredSubmissions.filter(s => 
+            const daySubmissions = filteredSubmissions.filter(s =>
                 isSameDay(new Date(s.workDate || s.submittedAt), day)
             )
             const verified = daySubmissions.filter(s => s.status === 'VERIFIED').length
             const pending = daySubmissions.filter(s => s.status === 'SUBMITTED' || s.status === 'PENDING').length
             const rejected = daySubmissions.filter(s => s.status === 'REJECTED').length
             const hours = daySubmissions.reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
-            
+
             return {
                 date: format(day, 'MMM d'),
                 fullDate: format(day, 'yyyy-MM-dd'),
@@ -227,13 +227,13 @@ export default function ManagerDashboardPage() {
         return responsibilities.map(resp => {
             const respAssignments = assignments.filter(a => String(a.responsibilityId) === String(resp.id))
             const assignedStaff = new Set(respAssignments.map(a => String(a.staffId))).size
-            const respSubmissions = filteredSubmissions.filter(s => 
+            const respSubmissions = filteredSubmissions.filter(s =>
                 respAssignments.some(a => String(a.id) === String(s.assignmentId))
             )
             const verified = respSubmissions.filter(s => s.status === 'VERIFIED').length
             const pending = respSubmissions.filter(s => s.status === 'SUBMITTED' || s.status === 'PENDING').length
             const rejected = respSubmissions.filter(s => s.status === 'REJECTED').length
-            
+
             return {
                 ...resp,
                 assignedStaff,
@@ -359,10 +359,10 @@ export default function ManagerDashboardPage() {
             tension: 0.4,
             pointRadius: 5,
             pointHoverRadius: 7,
-            pointBackgroundColor: staffStats.map(s => 
-                s.approvalRate >= 80 ? 'rgba(34, 197, 94, 1)' : 
-                s.approvalRate >= 50 ? 'rgba(251, 191, 36, 1)' : 
-                'rgba(239, 68, 68, 1)'
+            pointBackgroundColor: staffStats.map(s =>
+                s.approvalRate >= 80 ? 'rgba(34, 197, 94, 1)' :
+                    s.approvalRate >= 50 ? 'rgba(251, 191, 36, 1)' :
+                        'rgba(239, 68, 68, 1)'
             ),
         }]
     }
@@ -417,10 +417,10 @@ export default function ManagerDashboardPage() {
             tension: 0.4,
             pointRadius: 5,
             pointHoverRadius: 7,
-            pointBackgroundColor: responsibilityStats.map(r => 
-                r.completionRate >= 80 ? 'rgba(34, 197, 94, 1)' : 
-                r.completionRate >= 50 ? 'rgba(251, 191, 36, 1)' : 
-                'rgba(239, 68, 68, 1)'
+            pointBackgroundColor: responsibilityStats.map(r =>
+                r.completionRate >= 80 ? 'rgba(34, 197, 94, 1)' :
+                    r.completionRate >= 50 ? 'rgba(251, 191, 36, 1)' :
+                        'rgba(239, 68, 68, 1)'
             ),
         }]
     }
@@ -435,7 +435,7 @@ export default function ManagerDashboardPage() {
                 backgroundColor: 'rgba(0, 0, 0, 0.8)',
                 padding: 12,
                 callbacks: {
-                    label: function(context: any) {
+                    label: function (context: any) {
                         const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
                         const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0
                         return `${context.label}: ${context.raw} (${percentage}%)`
@@ -503,9 +503,9 @@ export default function ManagerDashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight"> Welcome back, {user?.role|| 'Manager'}👋</h1>
+                    <h1 className="text-2xl font-bold tracking-tight"> Welcome back, {user?.role || 'Manager'}👋</h1>
                     <p className="text-muted-foreground">
-                     Manage your team's work here.
+                        Manage your team's work here.
                     </p>
                 </div>
             </div>
@@ -828,8 +828,8 @@ export default function ManagerDashboardPage() {
                             <ScrollArea className="h-[400px]">
                                 <div className="space-y-3">
                                     {staffStats.map((staff, index) => (
-                                        <div 
-                                            key={staff.id} 
+                                        <div
+                                            key={staff.id}
                                             className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex items-center gap-3">
@@ -856,17 +856,17 @@ export default function ManagerDashboardPage() {
                                                 <div className="flex gap-2">
                                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                                                         {/* <CheckCircle className="h-3 w-3 mr-1" /> */}
-                                                        VERIFIED: 
+                                                        VERIFIED:
                                                         {staff.verified}
                                                     </Badge>
                                                     <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                                                         {/* <Clock className="h-3 w-3 mr-1" /> */}
-                                                        NOT VERIFIED: 
+                                                        NOT VERIFIED:
                                                         {staff.pending}
                                                     </Badge>
                                                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
                                                         {/* <XCircle className="h-3 w-3 mr-1" /> */}
-                                                        REJECTED: 
+                                                        REJECTED:
                                                         {staff.rejected}
                                                     </Badge>
                                                 </div>
@@ -1035,8 +1035,8 @@ export default function ManagerDashboardPage() {
                             <ScrollArea className="h-[500px]">
                                 <div className="space-y-3">
                                     {responsibilityStats.map((resp, index) => (
-                                        <div 
-                                            key={resp.id} 
+                                        <div
+                                            key={resp.id}
                                             className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex items-center justify-between mb-2">

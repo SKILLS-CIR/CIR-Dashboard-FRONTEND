@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { Department, SubDepartment, Employee, Assignment, WorkSubmission, Responsibility } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SubmissionStatusBadge } from "@/components/ui/status-badge"
 import { Calendar } from "@/components/ui/calendar"
@@ -85,7 +85,7 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
         from: subDays(new Date(), 30),
         to: new Date()
     })
-    
+
     // View responsibility dialog state
     const [viewResponsibilityDialogOpen, setViewResponsibilityDialogOpen] = useState(false)
     const [selectedResponsibility, setSelectedResponsibility] = useState<Responsibility | null>(null)
@@ -292,7 +292,7 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
                 titleFont: { size: 14, weight: 'bold' as const },
                 bodyFont: { size: 13 },
                 callbacks: {
-                    label: function(context: any) {
+                    label: function (context: any) {
                         const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
                         const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0
                         return `${context.label}: ${context.raw} (${percentage}%)`
@@ -456,6 +456,9 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
                 <CardContent className="pt-6">
                     <div className="flex flex-col md:flex-row gap-6">
                         <Avatar className="h-24 w-24">
+                            {staff.avatarUrl && (
+                                <AvatarImage src={staff.avatarUrl} alt={staff.name || 'Staff'} />
+                            )}
                             <AvatarFallback className="bg-primary/10 text-primary text-2xl">
                                 {getInitials(staff.name || 'U')}
                             </AvatarFallback>
@@ -764,8 +767,8 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
                                                     {format(new Date(assignment.assignedAt), "MMM d, yyyy")}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button 
-                                                        variant="ghost" 
+                                                    <Button
+                                                        variant="ghost"
                                                         size="sm"
                                                         onClick={() => openViewResponsibilityDialog(assignment)}
                                                     >

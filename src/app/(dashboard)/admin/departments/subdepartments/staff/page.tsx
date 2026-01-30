@@ -7,7 +7,7 @@ import { Department, SubDepartment, Employee } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
     Breadcrumb,
@@ -212,6 +212,9 @@ function StaffListContent() {
                                         <TableCell>
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-9 w-9">
+                                                    {staff.avatarUrl && (
+                                                        <AvatarImage src={staff.avatarUrl} alt={staff.name || 'Staff'} />
+                                                    )}
                                                     <AvatarFallback className="bg-primary/10 text-primary text-sm">
                                                         {getInitials(staff.name || 'U')}
                                                     </AvatarFallback>
