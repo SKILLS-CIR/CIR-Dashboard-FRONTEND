@@ -471,6 +471,58 @@ function StaffDetailContent({ staffId }: { staffId: string }) {
                 </CardContent>
             </Card>
 
+            {/* Submissions Tabs */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Submissions</CardTitle>
+                    <CardDescription>
+                        {staffSubmissions.length} total submission{staffSubmissions.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="pending">
+                        <TabsList className="mb-4">
+                            <TabsTrigger value="pending" className="gap-2">
+                                Pending
+                                {groupedSubmissions.pending.length > 0 && (
+                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs">
+                                        {groupedSubmissions.pending.length}
+                                    </span>
+                                )}
+                            </TabsTrigger>
+                            <TabsTrigger value="approved" className="gap-2">
+                                Approved
+                                {groupedSubmissions.approved.length > 0 && (
+                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
+                                        {groupedSubmissions.approved.length}
+                                    </span>
+                                )}
+                            </TabsTrigger>
+                            <TabsTrigger value="rejected" className="gap-2">
+                                Rejected
+                                {groupedSubmissions.rejected.length > 0 && (
+                                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
+                                        {groupedSubmissions.rejected.length}
+                                    </span>
+                                )}
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="pending">
+                            <SubmissionTable data={groupedSubmissions.pending} />
+                        </TabsContent>
+
+                        <TabsContent value="approved">
+                            <SubmissionTable data={groupedSubmissions.approved} showActions={false} />
+                        </TabsContent>
+
+                        <TabsContent value="rejected">
+                            <SubmissionTable data={groupedSubmissions.rejected} showActions={false} />
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+
             {/* Analytics Section */}
             <Card>
                 <CardHeader>
@@ -630,58 +682,6 @@ function StaffDetailContent({ staffId }: { staffId: string }) {
                             <Line data={hoursTrendChartData} options={lineChartOptions} />
                         </CardContent>
                     </Card>
-                </CardContent>
-            </Card>
-
-            {/* Submissions Tabs */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Submissions</CardTitle>
-                    <CardDescription>
-                        {staffSubmissions.length} total submission{staffSubmissions.length !== 1 ? 's' : ''}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Tabs defaultValue="pending">
-                        <TabsList className="mb-4">
-                            <TabsTrigger value="pending" className="gap-2">
-                                Pending
-                                {groupedSubmissions.pending.length > 0 && (
-                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs">
-                                        {groupedSubmissions.pending.length}
-                                    </span>
-                                )}
-                            </TabsTrigger>
-                            <TabsTrigger value="approved" className="gap-2">
-                                Approved
-                                {groupedSubmissions.approved.length > 0 && (
-                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                                        {groupedSubmissions.approved.length}
-                                    </span>
-                                )}
-                            </TabsTrigger>
-                            <TabsTrigger value="rejected" className="gap-2">
-                                Rejected
-                                {groupedSubmissions.rejected.length > 0 && (
-                                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
-                                        {groupedSubmissions.rejected.length}
-                                    </span>
-                                )}
-                            </TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="pending">
-                            <SubmissionTable data={groupedSubmissions.pending} />
-                        </TabsContent>
-
-                        <TabsContent value="approved">
-                            <SubmissionTable data={groupedSubmissions.approved} showActions={false} />
-                        </TabsContent>
-
-                        <TabsContent value="rejected">
-                            <SubmissionTable data={groupedSubmissions.rejected} showActions={false} />
-                        </TabsContent>
-                    </Tabs>
                 </CardContent>
             </Card>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import { api } from "@/lib/api"
+import { useRouter } from "next/navigation"
 import { Employee, Assignment, WorkSubmission, Responsibility, SubDepartment } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -48,6 +49,7 @@ type DateRange = {
 
 export default function ManagerDashboardPage() {
     const { user } = useAuth()
+    const router = useRouter()
     const [pendingSubmissions, setPendingSubmissions] = useState<WorkSubmission[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [submissions, setSubmissions] = useState<WorkSubmission[]>([])
@@ -568,7 +570,7 @@ export default function ManagerDashboardPage() {
 
             {/* Analytics Stats Cards (based on filtered date range) */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <Card>
+                <Card className="cursor-pointer transition-all hover:shadow-md" onClick={() => router.push('/manager/staff')}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
                         <Users className="h-4 w-4 text-blue-500" />
@@ -598,7 +600,7 @@ export default function ManagerDashboardPage() {
                         <p className="text-xs text-muted-foreground">{analyticsStats.verified} verified of {analyticsStats.total}</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="cursor-pointer transition-all hover:shadow-md" onClick={() => router.push('/manager/staff')}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
                         <Clock className="h-4 w-4 text-amber-500" />
