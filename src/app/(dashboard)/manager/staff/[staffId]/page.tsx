@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { RoleBadge, SubmissionStatusBadge } from "@/components/ui/status-badge"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
     Dialog,
     DialogContent,
@@ -451,21 +452,33 @@ function StaffDetailContent({ staffId }: { staffId: string }) {
             <Card>
                 <CardContent className="pt-6">
                     <div className="flex items-start gap-6">
-                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        {/* <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                             <User className="h-8 w-8 text-primary" />
-                        </div>
+                        </div> */}
+                        <Avatar className="h-24 w-24 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                            {staff.avatarUrl ? (
+                                <AvatarImage src={staff.avatarUrl} alt={staff.name || ''} />
+                            ) : (
+                                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                    {staff.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                </AvatarFallback>
+                            )}
+                        </Avatar>
                         <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                {/* <Mail className="h-4 w-4 text-muted-foreground" /> */}
+                                <span>{staff.name}</span>
+                            </div>
                             <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                {/* <Mail className="h-4 w-4 text-muted-foreground" /> */}
                                 <span>{staff.email}</span>
                             </div>
-                            {staff.subDepartment && (
+                         
                                 <div className="flex items-center gap-2">
                                     <Building className="h-4 w-4 text-muted-foreground" />
-                                    <span>{staff.subDepartment.name}</span>
+                                    <span>{staff.subDepartment?.name}</span> | <span>{staff.department?.name}</span>
                                 </div>
-                            )}
-                            <RoleBadge role={staff.role} />
+                            {/* <span>{staff.role}</span> */}
                         </div>
                     </div>
                 </CardContent>

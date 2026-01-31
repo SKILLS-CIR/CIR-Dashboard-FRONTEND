@@ -3,6 +3,7 @@
 import { useEffect, useState,useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import Link from "next/link"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { api } from "@/lib/api"
 import { Employee, Department, WorkSubmission, SubDepartment,Assignment, CreateResponsibilityDto,Responsibility} from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -884,9 +885,15 @@ export default function AdminDashboardPage() {
                                             onClick={() => setSelectedStaffId(String(staff.id))}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
-                                                    {staff.name.charAt(0)}
-                                                </div>
+                                                  <Avatar className="h-10 w-10 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                            {staff.avatarUrl ? (
+                                <AvatarImage src={staff.avatarUrl} alt={staff.name || ''} />
+                            ) : (
+                                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                    {staff.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                </AvatarFallback>
+                            )}
+                        </Avatar>
                                                 <div>
                                                     <p className="font-medium">{staff.name}</p>
                                                     <p className="text-sm text-muted-foreground">{staff.email}</p>

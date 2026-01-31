@@ -6,6 +6,7 @@ import { Assignment, Responsibility, Employee, AssignmentStatus, ResponsibilityG
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AssignmentStatusBadge } from "@/components/ui/status-badge"
 import {
     Table,
@@ -532,7 +533,7 @@ export default function ManagerAssignmentsPage() {
                     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                         <DialogTrigger asChild>
                             <Button>
-                                <Plus className="h-4 w-4 mr-2" /> Create Assignment
+                                <Plus className="h-4 w-4 mr-2" /> Assign Responsibility
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-lg">
@@ -740,12 +741,12 @@ export default function ManagerAssignmentsPage() {
                 <CardContent>
                     <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "all" | "groups" | "responsibilities")}>
                         <TabsList className="mb-4">
-                            <TabsTrigger value="all">All Assignments</TabsTrigger>
                             <TabsTrigger value="groups">By Groups</TabsTrigger>
                             <TabsTrigger value="responsibilities">
                                 <Briefcase className="h-4 w-4 mr-1" />
                                 Responsibilities
                             </TabsTrigger>
+                            <TabsTrigger value="all">All Assignments</TabsTrigger>
                         </TabsList>
 
                         {/* All Assignments View */}
@@ -868,9 +869,15 @@ export default function ManagerAssignmentsPage() {
                                         >
                                             {/* Staff Header - Clickable to expand */}
                                             <CollapsibleTrigger className="w-full flex items-center gap-3 p-4 bg-muted/30 hover:bg-muted/50 transition-colors rounded-lg">
-                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <User className="h-5 w-5 text-primary" />
-                                                </div>
+                                                <Avatar className="h-20 w-20 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                                                    {data.staff?.avatarUrl ? (
+                                                        <AvatarImage src={data.staff.avatarUrl} alt={data.staff.name || ''} />
+                                                    ) : (
+                                                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                                            {data.staff?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                                        </AvatarFallback>
+                                                    )}
+                                                </Avatar>
                                                 <div className="flex-1 text-left">
                                                     <h3 className="font-semibold">{data.staff?.name || 'Unknown Staff'}</h3>
                                                     <p className="text-sm text-muted-foreground">

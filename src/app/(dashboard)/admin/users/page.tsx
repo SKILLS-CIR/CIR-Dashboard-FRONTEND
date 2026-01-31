@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Employee, SubDepartment, Department, Role } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +37,7 @@ import { Search, Plus, Eye, Pencil, Trash2, UserPlus, KeyRound } from "lucide-re
 import { toast } from "sonner"
 
 export default function AdminUsersPage() {
+  const router = useRouter()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([])
@@ -406,19 +408,16 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
       {/* Users Table */}
       <Card>
@@ -465,7 +464,7 @@ export default function AdminUsersPage() {
                           variant="ghost"
                           size="sm"
                           title="View user"
-                          onClick={() => openViewDialog(employee)}
+                          onClick={() => router.push(`/admin/departments/subdepartments/staff/${employee.id}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>

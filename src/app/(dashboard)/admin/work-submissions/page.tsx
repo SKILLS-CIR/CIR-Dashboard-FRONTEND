@@ -33,12 +33,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { 
-    Search, 
-    Eye, 
-    CheckCircle, 
-    XCircle, 
-    Building2, 
+import {
+    Search,
+    Eye,
+    CheckCircle,
+    XCircle,
+    Building2,
     Layers,
     Clock,
     FileText,
@@ -55,7 +55,7 @@ export default function AdminWorkSubmissionsPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [statusFilter, setStatusFilter] = useState<string>("all")
     const [departmentFilter, setDepartmentFilter] = useState<string>("all")
-    const [subdepartmentFilter,setSubdepartmentFilter] = useState<string>("all")
+    const [subdepartmentFilter, setSubdepartmentFilter] = useState<string>("all")
 
     // View/Verify dialog state
     const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -92,9 +92,9 @@ export default function AdminWorkSubmissionsPage() {
         if (!staffId) return { department: null, subDepartment: null }
         const employee = employees.find(e => String(e.id) === String(staffId))
         if (!employee) return { department: null, subDepartment: null }
-        
+
         const subDept = subDepartments.find(sd => String(sd.id) === String(employee.subDepartmentId))
-        
+
         // Get department from employee's departmentId OR from subDepartment's departmentId
         let dept = null
         if (employee.departmentId) {
@@ -104,7 +104,7 @@ export default function AdminWorkSubmissionsPage() {
         if (!dept && subDept) {
             dept = departments.find(d => String(d.id) === String(subDept.departmentId))
         }
-        
+
         return { department: dept, subDepartment: subDept }
     }
 
@@ -113,10 +113,10 @@ export default function AdminWorkSubmissionsPage() {
         return submissions.filter(s => {
             // Search filter
             const searchLower = searchQuery.toLowerCase()
-            const matchesSearch = 
+            const matchesSearch =
                 s.staff?.name?.toLowerCase().includes(searchLower) ||
                 s.assignment?.responsibility?.title?.toLowerCase().includes(searchLower)
-            
+
             if (searchQuery && !matchesSearch) return false
 
             // Status filter
@@ -127,7 +127,7 @@ export default function AdminWorkSubmissionsPage() {
                 const { department } = getEmployeeDepartmentInfo(s.staffId)
                 if (!department || String(department.id) !== departmentFilter) return false
             }
-             // Subdepartment filter
+            // Subdepartment filter
             if (subdepartmentFilter !== "all") {
                 const { subDepartment } = getEmployeeDepartmentInfo(s.staffId)
                 if (!subDepartment || String(subDepartment.id) !== subdepartmentFilter) return false
@@ -182,61 +182,57 @@ export default function AdminWorkSubmissionsPage() {
             </div>
 
             {/* Filters */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="Search by employee or responsibility..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9"
-                            />
-                        </div>
-                        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <Building2 className="h-4 w-4 mr-2" />
-                                <SelectValue placeholder="Department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Departments</SelectItem>
-                                {departments.map((dept) => (
-                                    <SelectItem key={dept.id} value={String(dept.id)}>
-                                        {dept.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                           <Select value={subdepartmentFilter} onValueChange={setSubdepartmentFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <Building2 className="h-4 w-4 mr-2" />
-                                <SelectValue placeholder="Subdepartment" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Subdepartments</SelectItem>
-                                {subDepartments.map((subdept) => (
-                                    <SelectItem key={subdept.id} value={String(subdept.id)}>
-                                        {subdept.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="SUBMITTED">Submitted</SelectItem>
-                                <SelectItem value="VERIFIED">Verified</SelectItem>
-                                <SelectItem value="REJECTED">Rejected</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-            </Card>
+            <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+                <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Search by employee or responsibility..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <SelectTrigger className="w-[180px]">
+                        <Building2 className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={String(dept.id)}>
+                                {dept.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={subdepartmentFilter} onValueChange={setSubdepartmentFilter}>
+                    <SelectTrigger className="w-[180px]">
+                        <Building2 className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Subdepartment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Subdepartments</SelectItem>
+                        {subDepartments.map((subdept) => (
+                            <SelectItem key={subdept.id} value={String(subdept.id)}>
+                                {subdept.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                        <SelectItem value="VERIFIED">Verified</SelectItem>
+                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
 
             {/* Submissions Table */}
             <Card>
@@ -268,7 +264,7 @@ export default function AdminWorkSubmissionsPage() {
                                 {filteredSubmissions.map((submission) => {
                                     const { department, subDepartment } = getEmployeeDepartmentInfo(submission.staffId)
                                     const canVerify = submission.status === 'SUBMITTED' || submission.status === 'PENDING'
-                                    
+
                                     return (
                                         <TableRow key={submission.id}>
                                             <TableCell className="font-medium max-w-[200px]">
@@ -310,8 +306,8 @@ export default function AdminWorkSubmissionsPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <Button 
-                                                        variant="ghost" 
+                                                    <Button
+                                                        variant="ghost"
                                                         size="sm"
                                                         className="text-black dark:text-white border border-black dark:border-white p-2 dark:bg-black rounded-none"
                                                         onClick={() => openViewDialog(submission)}
@@ -321,8 +317,8 @@ export default function AdminWorkSubmissionsPage() {
                                                     </Button>
                                                     {canVerify && (
                                                         <>
-                                                            <Button 
-                                                                variant="ghost" 
+                                                            <Button
+                                                                variant="ghost"
                                                                 size="sm"
                                                                 className="text-black dark:text-white border border-black dark:border-white p-2 dark:bg-black rounded-none"
                                                                 onClick={() => {
@@ -334,8 +330,8 @@ export default function AdminWorkSubmissionsPage() {
                                                                 {/* <CheckCircle className="h-4 w-4" /> */}
                                                                 VERIFY
                                                             </Button>
-                                                            <Button 
-                                                                variant="ghost" 
+                                                            <Button
+                                                                variant="ghost"
                                                                 size="sm"
                                                                 className="text-black dark:text-white border border-black dark:border-white p-2 dark:bg-black rounded-none"
                                                                 onClick={() => openViewDialog(submission)}
@@ -365,7 +361,7 @@ export default function AdminWorkSubmissionsPage() {
                             View submission details and verify/reject
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     {selectedSubmission && (
                         <div className="space-y-4 py-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -433,7 +429,7 @@ export default function AdminWorkSubmissionsPage() {
                                         </Badge>
                                     )}
                                     {selectedSubmission.workProofUrl && (
-                                        <a 
+                                        <a
                                             href={selectedSubmission.workProofUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"

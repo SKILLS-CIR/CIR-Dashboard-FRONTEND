@@ -110,30 +110,30 @@ export default function ManagerResponsibilityGroupsPage() {
     // Get responsibilities that match the selected cycle for group creation
     const cycleFilteredResponsibilities = useMemo(() => {
         if (!newGroupCycle || newGroupCycle.length !== 7) return responsibilities
-        
+
         const [yearStr, monthStr] = newGroupCycle.split('-')
         const year = parseInt(yearStr)
         const month = parseInt(monthStr)
-        
+
         if (isNaN(year) || isNaN(month)) return responsibilities
-        
+
         // Create the start and end of the cycle month
         const cycleStart = new Date(year, month - 1, 1) // First day of month
         const cycleEnd = new Date(year, month, 0) // Last day of month
-        
+
         return responsibilities.filter(resp => {
             // If responsibility has a cycle field, match it
             if (resp.cycle === newGroupCycle) return true
-            
+
             // If responsibility has startDate/endDate, check if it falls within the cycle
             if (resp.startDate) {
                 const respStart = new Date(resp.startDate)
                 const respEnd = resp.endDate ? new Date(resp.endDate) : respStart
-                
+
                 // Check if the responsibility's date range overlaps with the cycle month
                 return respStart <= cycleEnd && respEnd >= cycleStart
             }
-            
+
             return false
         })
     }, [responsibilities, newGroupCycle])
@@ -402,18 +402,18 @@ export default function ManagerResponsibilityGroupsPage() {
                                 <div className="flex items-center justify-between">
                                     <Label>Add Responsibilities to Group</Label>
                                     <div className="flex gap-2">
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
                                             size="sm"
                                             onClick={handleSelectAll}
                                             disabled={cycleFilteredResponsibilities.length === 0}
                                         >
                                             Select All
                                         </Button>
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
                                             size="sm"
                                             onClick={handleClearAll}
                                             disabled={selectedResponsibilityIds.size === 0}
@@ -475,19 +475,16 @@ export default function ManagerResponsibilityGroupsPage() {
             </div>
 
             {/* Search */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Search groups..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Search */}
+            <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    placeholder="Search groups..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
 
             {/* Groups List */}
             <Card>
@@ -693,9 +690,9 @@ export default function ManagerResponsibilityGroupsPage() {
                                 Select responsibilities to add ({responsibilitiesToAdd.size} selected)
                             </p>
                             <div className="flex gap-2">
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
+                                <Button
+                                    type="button"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => {
                                         const available = getAvailableResponsibilities(addingToGroup)
@@ -705,9 +702,9 @@ export default function ManagerResponsibilityGroupsPage() {
                                 >
                                     Select All
                                 </Button>
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
+                                <Button
+                                    type="button"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => setResponsibilitiesToAdd(new Set())}
                                     disabled={responsibilitiesToAdd.size === 0}
@@ -756,8 +753,8 @@ export default function ManagerResponsibilityGroupsPage() {
                         <Button variant="outline" onClick={() => setAddResponsibilitiesDialogOpen(false)}>
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleAddResponsibilities} 
+                        <Button
+                            onClick={handleAddResponsibilities}
                             disabled={isAddingResponsibilities || responsibilitiesToAdd.size === 0}
                         >
                             {isAddingResponsibilities ? "Adding..." : `Add ${responsibilitiesToAdd.size} Responsibilities`}

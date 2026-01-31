@@ -7,6 +7,7 @@ import { Employee, WorkSubmission } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
     Search,
     User,
@@ -77,19 +78,15 @@ export default function ManagerStaffPage() {
             </div>
 
             {/* Search */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by name or email..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+            <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    placeholder="Search by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
 
             {/* Staff List */}
             <Card>
@@ -115,9 +112,15 @@ export default function ManagerStaffPage() {
                                         onClick={() => handleStaffClick(member.id)}
                                     >
                                         <div className="flex items-start gap-4">
-                                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <User className="h-6 w-6 text-primary" />
-                                            </div>
+                                            <Avatar className="h-20 w-20 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                                                {member.avatarUrl ? (
+                                                    <AvatarImage src={member.avatarUrl} alt={member.name || ''} />
+                                                ) : (
+                                                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                                        {member.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                                    </AvatarFallback>
+                                                )}
+                                            </Avatar>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between">
                                                     <p className="font-medium truncate">{member.name}</p>

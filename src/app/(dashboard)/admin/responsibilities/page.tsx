@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/providers/auth-context"
-import { Responsibility, SubDepartment, CreateResponsibilityDto } from "@/types/cir"
+import { Responsibility, SubDepartment, Department, CreateResponsibilityDto } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,8 +49,10 @@ export default function AdminResponsibilitiesPage() {
     const { user } = useAuth()
     const [responsibilities, setResponsibilities] = useState<Responsibility[]>([])
     const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([])
+    const [departments, setDepartments] = useState<Department[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
+    const [selectedFilterDept, setSelectedFilterDept] = useState<string>("all")
     const [selectedFilterSubDept, setSelectedFilterSubDept] = useState<string>("all")
     const [selectedFilterCycle, setSelectedFilterCycle] = useState<string>("all")
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -73,12 +75,14 @@ export default function AdminResponsibilitiesPage() {
 
     async function fetchData() {
         try {
-            const [responsibilitiesData, subDepartmentsData] = await Promise.all([
+            const [responsibilitiesData, subDepartmentsData, departmentsData] = await Promise.all([
                 api.responsibilities.getAll(),
                 api.subDepartments.getAll(),
+                api.departments.getAll(),
             ])
             setResponsibilities(responsibilitiesData)
             setSubDepartments(subDepartmentsData)
+            setDepartments(departmentsData)
         } catch (error) {
             console.error("Failed to fetch data:", error)
         } finally {
@@ -89,21 +93,31 @@ export default function AdminResponsibilitiesPage() {
     // Get unique cycles from responsibilities
     const uniqueCycles = Array.from(new Set(responsibilities.map(r => r.cycle).filter(Boolean))).sort().reverse()
 
+    // Filter sub-departments based on selected department for the filter
+    const filteredSubDepartmentsForFilter = selectedFilterDept === "all"
+        ? subDepartments
+        : subDepartments.filter(sd => sd.departmentId === selectedFilterDept)
+
     const filteredResponsibilities = responsibilities.filter(r => {
         // Search filter
         const matchesSearch = searchQuery === "" ||
             r.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             r.description?.toLowerCase().includes(searchQuery.toLowerCase())
-        
+
+        // Department filter (check via subDepartment's departmentId)
+        const matchesDept = selectedFilterDept === "all" ||
+            r.subDepartment?.departmentId === selectedFilterDept ||
+            subDepartments.find(sd => sd.id === r.subDepartmentId)?.departmentId === selectedFilterDept
+
         // Sub-department filter
         const matchesSubDept = selectedFilterSubDept === "all" ||
             r.subDepartmentId === selectedFilterSubDept ||
             r.subDepartment?.id === selectedFilterSubDept
-        
+
         // Cycle filter
         const matchesCycle = selectedFilterCycle === "all" || r.cycle === selectedFilterCycle
-        
-        return matchesSearch && matchesSubDept && matchesCycle
+
+        return matchesSearch && matchesDept && matchesSubDept && matchesCycle
     })
 
     async function handleCreate() {
@@ -345,52 +359,66 @@ export default function AdminResponsibilitiesPage() {
             </div>
 
             {/* Search and Filters */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex gap-3">
-                        {/* Search Input */}
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="Search responsibilities..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9"
-                            />
-                        </div>
-                        
-                        {/* Sub-Department Filter */}
-                        <Select value={selectedFilterSubDept} onValueChange={setSelectedFilterSubDept}>
-                            <SelectTrigger className="w-[220px]">
-                                <SelectValue placeholder="All Sub-Departments" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Sub-Departments</SelectItem>
-                                {subDepartments.map((sd) => (
-                                    <SelectItem key={sd.id} value={sd.id}>
-                                        {sd.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        
-                        {/* Cycle Filter */}
-                        <Select value={selectedFilterCycle} onValueChange={setSelectedFilterCycle}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="All Cycles" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Cycles</SelectItem>
-                                {uniqueCycles.map((cycle) => (
-                                    <SelectItem key={cycle} value={cycle}>
-                                        {cycle}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-            </Card>
+            <div className="flex gap-3 flex-wrap">
+                {/* Search Input */}
+                <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Search responsibilities..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+
+                {/* Department Filter */}
+                <Select value={selectedFilterDept} onValueChange={(v) => {
+                    setSelectedFilterDept(v)
+                    setSelectedFilterSubDept("all") // Reset sub-department when department changes
+                }}>
+                    <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="All Departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Sub-Department Filter */}
+                <Select value={selectedFilterSubDept} onValueChange={setSelectedFilterSubDept}>
+                    <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="All Sub-Departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Sub-Departments</SelectItem>
+                        {filteredSubDepartmentsForFilter.map((sd) => (
+                            <SelectItem key={sd.id} value={sd.id}>
+                                {sd.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Cycle Filter */}
+                <Select value={selectedFilterCycle} onValueChange={setSelectedFilterCycle}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Cycles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Cycles</SelectItem>
+                        {uniqueCycles.map((cycle) => (
+                            <SelectItem key={cycle} value={cycle}>
+                                {cycle}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
 
             {/* Responsibilities Table */}
             <Card>

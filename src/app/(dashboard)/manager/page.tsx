@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar } from "@/components/ui/calendar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -834,9 +835,15 @@ export default function ManagerDashboardPage() {
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="relative">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
-                                                        {staff.name.charAt(0)}
-                                                    </div>
+                                                        <Avatar className="h-10 w-10 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                                                {staff.avatarUrl ? (
+                                                    <AvatarImage src={staff.avatarUrl} alt={staff.name || ''} />
+                                                ) : (
+                                                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                                        {staff.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                                    </AvatarFallback>
+                                                )}
+                                            </Avatar>
                                                     {index < 3 && (
                                                         <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-yellow-400 border-2 border-white flex items-center justify-center text-xs font-bold">
                                                             {index + 1}
@@ -1123,7 +1130,7 @@ export default function ManagerDashboardPage() {
             </div> */}
 
             {/* Pending Verifications */}
-            <Card>
+            {/* <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Pending Verifications</CardTitle>
@@ -1160,7 +1167,7 @@ export default function ManagerDashboardPage() {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Quick Actions */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
