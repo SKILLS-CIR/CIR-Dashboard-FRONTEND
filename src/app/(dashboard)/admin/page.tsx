@@ -59,7 +59,7 @@ import { toast } from "sonner"
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler } from 'chart.js'
-import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2'
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler)
 
 type DateRange = {
@@ -332,26 +332,59 @@ export default function AdminDashboardPage() {
         }]
     }
 
-    const dailySubmissionsData = {
+    // Multi-series Area Chart Data - Enhanced with all statuses
+    const multiSeriesAreaData = {
         labels: dailyData.map(d => d.date),
         datasets: [{
-            label: 'Total Submissions',
+            label: 'Total',
             data: dailyData.map(d => d.submissions),
             borderColor: 'rgba(99, 102, 241, 1)',
-            backgroundColor: 'rgba(99, 102, 241, 0.15)',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
             fill: true,
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2,
         }, {
             label: 'Verified',
             data: dailyData.map(d => d.verified),
             borderColor: 'rgba(34, 197, 94, 1)',
-            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+            backgroundColor: 'rgba(34, 197, 94, 0.12)',
             fill: true,
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2,
+        }, {
+            label: 'Pending',
+            data: dailyData.map(d => {
+                const daySubmissions = filteredSubmissions.filter(s => 
+                    format(new Date(s.workDate || s.submittedAt), 'MMM d') === d.date
+                )
+                return daySubmissions.filter(s => s.status === 'SUBMITTED' || s.status === 'PENDING').length
+            }),
+            borderColor: 'rgba(251, 191, 36, 1)',
+            backgroundColor: 'rgba(251, 191, 36, 0.12)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2,
+        }, {
+            label: 'Rejected',
+            data: dailyData.map(d => {
+                const daySubmissions = filteredSubmissions.filter(s => 
+                    format(new Date(s.workDate || s.submittedAt), 'MMM d') === d.date
+                )
+                return daySubmissions.filter(s => s.status === 'REJECTED').length
+            }),
+            borderColor: 'rgba(239, 68, 68, 1)',
+            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2,
         }]
     }
 
@@ -360,13 +393,13 @@ export default function AdminDashboardPage() {
         datasets: [{
             label: 'Verified',
             data: departmentStats.slice(0, 8).map(d => d.verified),
-            backgroundColor: 'rgba(34, 197, 94, 0.8)',
-            borderRadius: 4,
+            backgroundColor: 'rgba(34, 197, 94, 0.85)',
+            borderRadius: 0,
         }, {
-            label: 'Pending/Rejected',
+            label: 'Pending',
             data: departmentStats.slice(0, 8).map(d => d.totalSubmissions - d.verified),
-            backgroundColor: 'rgba(251, 191, 36, 0.8)',
-            borderRadius: 4,
+            backgroundColor: 'rgba(251, 191, 36, 0.85)',
+            borderRadius: 0,
         }]
     }
 
@@ -378,21 +411,81 @@ export default function AdminDashboardPage() {
             borderColor: 'rgba(139, 92, 246, 1)',
             backgroundColor: 'rgba(139, 92, 246, 0.15)',
             fill: true,
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2,
         }]
     }
 
-    // Chart Options
+    // Daily Hours Bar Chart - Shows hours per day
+    const dailyHoursBarData = {
+        labels: dailyData.map(d => d.date),
+        datasets: [{
+            label: 'Hours',
+            data: dailyData.map(d => d.hours),
+            backgroundColor: 'rgba(99, 102, 241, 0.85)',
+            borderRadius: 0,
+            barThickness: 'flex' as const,
+            maxBarThickness: 40,
+        }]
+    }
+
+    // Area chart options for smooth multi-series
+    const areaChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { 
+                position: 'top' as const, 
+                labels: { 
+                    padding: 16, 
+                    usePointStyle: true,
+                    font: { size: 11 }
+                } 
+            },
+            tooltip: { 
+                backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                padding: 12, 
+                mode: 'index' as const, 
+                intersect: false,
+                titleFont: { size: 12 },
+                bodyFont: { size: 11 },
+                cornerRadius: 0,
+            },
+        },
+        scales: {
+            x: { 
+                grid: { display: false },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
+        },
+        interaction: { mode: 'nearest' as const, axis: 'x' as const, intersect: false },
+        elements: {
+            line: { borderJoinStyle: 'round' as const },
+        },
+    }
+
+    // Chart Options - Sharp, clean styling
     const pieChartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: 'bottom' as const, labels: { padding: 20, usePointStyle: true } },
+            legend: { 
+                position: 'bottom' as const, 
+                labels: { padding: 16, usePointStyle: true, font: { size: 11 } } 
+            },
             tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
                 padding: 12,
+                cornerRadius: 0,
+                titleFont: { size: 12 },
+                bodyFont: { size: 11 },
                 callbacks: {
                     label: function(context: any) {
                         const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
@@ -404,16 +497,62 @@ export default function AdminDashboardPage() {
         },
     }
 
+    // Vertical bar chart options for daily hours
+    const verticalBarChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { 
+                backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                padding: 12,
+                cornerRadius: 0,
+                callbacks: {
+                    label: function(context: any) {
+                        return `${context.raw.toFixed(1)} hours`
+                    }
+                }
+            },
+        },
+        scales: {
+            x: { 
+                grid: { display: false },
+                ticks: { font: { size: 9 }, color: 'rgba(100, 116, 139, 0.8)', maxRotation: 45, minRotation: 45 }
+            },
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
+        },
+    }
+
     const lineChartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: 'top' as const, labels: { padding: 15, usePointStyle: true } },
-            tooltip: { backgroundColor: 'rgba(0, 0, 0, 0.8)', padding: 12, mode: 'index' as const, intersect: false },
+            legend: { 
+                position: 'top' as const, 
+                labels: { padding: 16, usePointStyle: true, font: { size: 11 } } 
+            },
+            tooltip: { 
+                backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                padding: 12, 
+                mode: 'index' as const, 
+                intersect: false,
+                cornerRadius: 0,
+            },
         },
         scales: {
-            x: { grid: { display: false } },
-            y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+            x: { 
+                grid: { display: false },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
         },
         interaction: { mode: 'nearest' as const, axis: 'x' as const, intersect: false },
     }
@@ -423,12 +562,28 @@ export default function AdminDashboardPage() {
         maintainAspectRatio: false,
         indexAxis: 'y' as const,
         plugins: {
-            legend: { position: 'top' as const, labels: { padding: 15, usePointStyle: true } },
-            tooltip: { backgroundColor: 'rgba(0, 0, 0, 0.8)', padding: 12 },
+            legend: { 
+                position: 'top' as const, 
+                labels: { padding: 16, usePointStyle: true, font: { size: 11 } } 
+            },
+            tooltip: { 
+                backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                padding: 12,
+                cornerRadius: 0,
+            },
         },
         scales: {
-            x: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
-            y: { stacked: true, grid: { display: false } },
+            x: { 
+                stacked: true, 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
+            y: { 
+                stacked: true, 
+                grid: { display: false },
+                ticks: { font: { size: 10 }, color: 'rgba(100, 116, 139, 0.8)' }
+            },
         },
     }
 
@@ -575,14 +730,14 @@ export default function AdminDashboardPage() {
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
-                            <div className="flex gap-2 p-3 border-b">
-                                <Button size="sm" variant="outline" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                            <div className="flex gap-2 p-2 border-b">
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
                                     7 days
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
                                     30 days
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>
                                     This Month
                                 </Button>
                             </div>
@@ -593,92 +748,107 @@ export default function AdminDashboardPage() {
                                 selected={dateRange}
                                 onSelect={(range) => range?.from && range?.to && setDateRange({ from: range.from, to: range.to })}
                                 numberOfMonths={1}
+                                className="p-2"
                             />
                         </PopoverContent>
                     </Popover>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Departments</CardTitle>
+            {/* Stats Cards - Sharp, clean design */}
+            <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+                <Card className="rounded-none border-l-2 border-l-blue-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {selectedDepartmentId !== "all" ? "Department" : "Departments"}
+                        </CardTitle>
                         <Building2 className="h-4 w-4 text-blue-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">{departments.length}</div>
-                        <p className="text-xs text-muted-foreground">{subDepartments.length} sub-departments</p>
+                    <CardContent className="pb-3 px-4">
+                        <div className="text-2xl font-semibold">
+                            {selectedDepartmentId !== "all" ? 1 : departments.length}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {selectedSubDepartmentId !== "all" ? 1 : filteredSubDepartments.length} sub-dept{filteredSubDepartments.length !== 1 ? 's' : ''}
+                        </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+                <Card className="rounded-none border-l-2 border-l-indigo-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {selectedStaffId !== "all" ? "Selected" : "Staff"}
+                        </CardTitle>
                         <Users className="h-4 w-4 text-indigo-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-indigo-600">{stats.totalStaff}</div>
-                        <p className="text-xs text-muted-foreground">{stats.totalManagers} managers</p>
+                    <CardContent className="pb-3 px-4">
+                        <div className="text-2xl font-semibold">
+                            {selectedStaffId !== "all" ? 1 : filteredStaffList.length}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {selectedDepartmentId === "all" && selectedSubDepartmentId === "all" 
+                                ? `${stats.totalManagers} manager${stats.totalManagers !== 1 ? 's' : ''}` 
+                                : 'in scope'}
+                        </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Submissions</CardTitle>
+                <Card className="rounded-none border-l-2 border-l-cyan-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Submissions</CardTitle>
                         <BarChart3 className="h-4 w-4 text-cyan-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-cyan-600">{stats.total}</div>
-                        <p className="text-xs text-muted-foreground">{stats.totalHours.toFixed(1)} hours logged</p>
+                    <CardContent className="pb-3 px-4">
+                        <div className="text-2xl font-semibold">{stats.total}</div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{stats.totalHours.toFixed(1)}h logged</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
+                <Card className="rounded-none border-l-2 border-l-green-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Approval</CardTitle>
                         <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.approvalRate}%</div>
-                        <p className="text-xs text-muted-foreground">{stats.verified} verified</p>
+                    <CardContent className="pb-3 px-4">
+                        <div className="text-2xl font-semibold">{stats.approvalRate}%</div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{stats.verified} verified</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                <Card className="rounded-none border-l-2 border-l-amber-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pending</CardTitle>
                         <Clock className="h-4 w-4 text-amber-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
-                        <p className="text-xs text-muted-foreground">Awaiting review</p>
+                    <CardContent className="pb-3 px-4">
+                        <div className="text-2xl font-semibold">{stats.pending}</div>
+                        <p className="text-xs text-muted-foreground mt-0.5">awaiting review</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Verified Hours</CardTitle>
+                <Card className="rounded-none border-l-2 border-l-purple-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Verified Hrs</CardTitle>
                         <FileCheck className="h-4 w-4 text-purple-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-purple-600">{stats.verifiedHours.toFixed(1)}h</div>
-                        <p className="text-xs text-muted-foreground">Approved work</p>
+                    <CardContent className="pb-3 px-4">
+                        <div className="text-2xl font-semibold">{stats.verifiedHours.toFixed(1)}h</div>
+                        <p className="text-xs text-muted-foreground mt-0.5">approved work</p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Tabs */}
+            {/* Tabs - Clean navigation */}
             <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="overview" className="gap-2">
+                <TabsList className="rounded-none bg-muted/50 p-0.5">
+                    <TabsTrigger value="overview" className="rounded-none gap-2 data-[state=active]:shadow-none">
                         <Activity className="h-4 w-4" />
                         Overview
                     </TabsTrigger>
-                    <TabsTrigger value="departments" className="gap-2">
+                    <TabsTrigger value="departments" className="rounded-none gap-2 data-[state=active]:shadow-none">
                         <Building2 className="h-4 w-4" />
                         Departments
                     </TabsTrigger>
-                    <TabsTrigger value="staff" className="gap-2">
+                    <TabsTrigger value="staff" className="rounded-none gap-2 data-[state=active]:shadow-none">
                         <Users className="h-4 w-4" />
                         Staff
                     </TabsTrigger>
-                    <TabsTrigger value="responsibilities" className="gap-2">
+                    <TabsTrigger value="responsibilities" className="rounded-none gap-2 data-[state=active]:shadow-none">
                         <Briefcase className="h-4 w-4" />
                         Responsibilities
                     </TabsTrigger>
@@ -686,68 +856,68 @@ export default function AdminDashboardPage() {
 
                 {/* Overview Tab */}
                 <TabsContent value="overview" className="space-y-4">
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-indigo-500" />
-                                    Daily Submissions Trend
-                                </CardTitle>
-                                <CardDescription>Submissions and verifications over time</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="h-[300px]">
-                                    <Line data={dailySubmissionsData} options={lineChartOptions} />
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Target className="h-5 w-5 text-green-500" />
+                    {/* Multi-Series Area Chart - Full Width */}
+                    <Card className="rounded-none">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Activity className="h-4 w-4 text-indigo-500" />
+                                Submissions Trend
+                            </CardTitle>
+                            <CardDescription className="text-xs">Multi-series view of all submission statuses over time</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-[280px]">
+                                <Line data={multiSeriesAreaData} options={areaChartOptions} />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="grid gap-4 lg:grid-cols-3">
+                        <Card className="rounded-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Target className="h-4 w-4 text-green-500" />
                                     Status Distribution
                                 </CardTitle>
-                                <CardDescription>Breakdown by submission status</CardDescription>
+                                <CardDescription className="text-xs">Breakdown by status</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-[300px]">
+                                <div className="h-[240px]">
                                     {stats.total > 0 ? (
-                                        <Doughnut data={statusPieData} options={pieChartOptions} />
+                                        <Pie data={statusPieData} options={pieChartOptions} />
                                     ) : (
-                                        <div className="h-full flex items-center justify-center text-muted-foreground">
+                                        <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                                             No submissions in selected period
                                         </div>
                                     )}
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Building2 className="h-5 w-5 text-blue-500" />
-                                    Department Performance
+                        <Card className="rounded-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Building2 className="h-4 w-4 text-blue-500" />
+                                    By Department
                                 </CardTitle>
-                                <CardDescription>Submissions by department</CardDescription>
+                                <CardDescription className="text-xs">Submissions breakdown</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-[300px]">
+                                <div className="h-[240px]">
                                     <Bar data={departmentBarData} options={barChartOptions} />
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-purple-500" />
-                                    Hours Trend
+                        <Card className="rounded-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <BarChart3 className="h-4 w-4 text-indigo-500" />
+                                    Daily Staff Hours
                                 </CardTitle>
-                                <CardDescription>Daily hours worked</CardDescription>
+                                <CardDescription className="text-xs">Hours worked per day</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-[300px]">
-                                    <Line data={hoursChartData} options={lineChartOptions} />
+                                <div className="h-[240px]">
+                                    <Bar data={dailyHoursBarData} options={verticalBarChartOptions} />
                                 </div>
                             </CardContent>
                         </Card>
@@ -757,26 +927,26 @@ export default function AdminDashboardPage() {
                 {/* Departments Tab */}
                 <TabsContent value="departments" className="space-y-4">
                     <div className="grid gap-4 lg:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Building2 className="h-5 w-5 text-blue-500" />
-                                    Departments Overview
+                        <Card className="rounded-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Building2 className="h-4 w-4 text-blue-500" />
+                                    Departments
                                 </CardTitle>
-                                <CardDescription>Performance by department</CardDescription>
+                                <CardDescription className="text-xs">Performance by department</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <ScrollArea className="h-[400px]">
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {departmentStats.map((dept) => (
                                             <div 
                                                 key={dept.id} 
-                                                className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                                                className="p-3 border border-l-2 border-l-blue-500 hover:bg-muted/50 transition-colors cursor-pointer"
                                                 onClick={() => setSelectedDepartmentId(String(dept.id))}
                                             >
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="font-medium">{dept.name}</span>
-                                                    <Badge variant="outline">{dept.staffCount} staff</Badge>
+                                                    <span className="font-medium text-sm">{dept.name}</span>
+                                                    <Badge variant="outline" className="rounded-none text-xs">{dept.staffCount} staff</Badge>
                                                 </div>
                                                 <div className="grid grid-cols-4 gap-2 text-center text-sm">
                                                     <div>
@@ -804,28 +974,28 @@ export default function AdminDashboardPage() {
                                 </ScrollArea>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Layers className="h-5 w-5 text-cyan-500" />
+                        <Card className="rounded-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Layers className="h-4 w-4 text-cyan-500" />
                                     Sub-Departments
                                 </CardTitle>
-                                <CardDescription>
+                                <CardDescription className="text-xs">
                                     {selectedDepartmentId === "all" ? "All sub-departments" : "Filtered by department"}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <ScrollArea className="h-[400px]">
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {subDepartmentStats.map((subDept) => (
                                             <div 
                                                 key={subDept.id} 
-                                                className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                                                className="p-3 border border-l-2 border-l-cyan-500 hover:bg-muted/50 transition-colors cursor-pointer"
                                                 onClick={() => setSelectedSubDepartmentId(String(subDept.id))}
                                             >
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="font-medium">{subDept.name}</span>
-                                                    <Badge variant="outline">{subDept.staffCount} staff</Badge>
+                                                    <span className="font-medium text-sm">{subDept.name}</span>
+                                                    <Badge variant="outline" className="rounded-none text-xs">{subDept.staffCount} staff</Badge>
                                                 </div>
                                                 <div className="grid grid-cols-4 gap-2 text-center text-sm">
                                                     <div>
@@ -863,67 +1033,67 @@ export default function AdminDashboardPage() {
 
                 {/* Staff Tab */}
                 <TabsContent value="staff" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5 text-indigo-500" />
+                    <Card className="rounded-none">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Users className="h-4 w-4 text-indigo-500" />
                                 Staff Performance
                             </CardTitle>
-                            <CardDescription>
-                                Individual staff metrics 
-                                {selectedDepartmentId !== "all" && " (filtered by department)"}
-                                {selectedSubDepartmentId !== "all" && " (filtered by sub-department)"}
+                            <CardDescription className="text-xs">
+                                Individual metrics 
+                                {selectedDepartmentId !== "all" && " • filtered by department"}
+                                {selectedSubDepartmentId !== "all" && " • filtered by sub-department"}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-[500px]">
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {staffStats.map((staff) => (
                                         <div 
                                             key={staff.id} 
-                                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                                            className="flex items-center justify-between p-3 border border-l-2 border-l-indigo-500 hover:bg-muted/50 transition-colors cursor-pointer"
                                             onClick={() => setSelectedStaffId(String(staff.id))}
                                         >
                                             <div className="flex items-center gap-3">
-                                                  <Avatar className="h-10 w-10 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                                                  <Avatar className="h-9 w-9 rounded-none ring-1 ring-muted-foreground/20 flex-shrink-0">
                             {staff.avatarUrl ? (
-                                <AvatarImage src={staff.avatarUrl} alt={staff.name || ''} />
+                                <AvatarImage src={staff.avatarUrl} alt={staff.name || ''} className="rounded-none" />
                             ) : (
-                                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                <AvatarFallback className="rounded-none bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-medium text-xs">
                                     {staff.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
                                 </AvatarFallback>
                             )}
                         </Avatar>
                                                 <div>
-                                                    <p className="font-medium">{staff.name}</p>
-                                                    <p className="text-sm text-muted-foreground">{staff.email}</p>
+                                                    <p className="font-medium text-sm">{staff.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{staff.email}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-6">
                                                 <div className="text-center">
-                                                    <p className="text-lg font-semibold">{staff.total}</p>
+                                                    <p className="text-base font-semibold">{staff.total}</p>
                                                     <p className="text-xs text-muted-foreground">Submissions</p>
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                <div className="flex gap-1">
+                                                    <Badge variant="outline" className="rounded-none bg-green-50 text-green-700 border-green-200">
                                                         <CheckCircle className="h-3 w-3 mr-1" />
                                                         {staff.verified}
                                                     </Badge>
-                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                                    <Badge variant="outline" className="rounded-none bg-amber-50 text-amber-700 border-amber-200">
                                                         <Clock className="h-3 w-3 mr-1" />
                                                         {staff.pending}
                                                     </Badge>
-                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                                    <Badge variant="outline" className="rounded-none bg-red-50 text-red-700 border-red-200">
                                                         <XCircle className="h-3 w-3 mr-1" />
                                                         {staff.rejected}
                                                     </Badge>
                                                 </div>
-                                                <div className="text-center min-w-[60px]">
-                                                    <p className="text-lg font-semibold text-purple-600">{staff.hours}h</p>
+                                                <div className="text-center min-w-[50px]">
+                                                    <p className="text-base font-semibold text-purple-600">{staff.hours}h</p>
                                                     <p className="text-xs text-muted-foreground">Hours</p>
                                                 </div>
-                                                <div className="text-center min-w-[60px]">
-                                                    <p className={`text-lg font-semibold ${staff.approvalRate >= 80 ? 'text-green-600' : staff.approvalRate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                <div className="text-center min-w-[50px]">
+                                                    <p className={`text-base font-semibold ${staff.approvalRate >= 80 ? 'text-green-600' : staff.approvalRate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
                                                         {staff.approvalRate}%
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Approval</p>
@@ -944,82 +1114,82 @@ export default function AdminDashboardPage() {
 
                 {/* Responsibilities Tab */}
                 <TabsContent value="responsibilities" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Briefcase className="h-5 w-5 text-indigo-500" />
-                                Responsibilities Overview
+                    <Card className="rounded-none">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Briefcase className="h-4 w-4 text-indigo-500" />
+                                Responsibilities
                             </CardTitle>
-                            <CardDescription>
+                            <CardDescription className="text-xs">
                                 Performance by responsibility
-                                {selectedDepartmentId !== "all" && " (filtered)"}
+                                {selectedDepartmentId !== "all" && " • filtered"}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-[500px]">
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {responsibilityStats.map((resp) => (
                                         <div 
                                             key={resp.id} 
-                                            className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                                            className="p-3 border border-l-2 border-l-purple-500 hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
-                                                    <Target className="h-4 w-4 text-indigo-500" />
-                                                    <span className="font-medium">{resp.title}</span>
+                                                    <Target className="h-3 w-3 text-purple-500" />
+                                                    <span className="font-medium text-sm">{resp.title}</span>
                                                 </div>
-                                                <Badge variant={resp.isActive ? "default" : "secondary"}>
+                                                <Badge variant={resp.isActive ? "default" : "secondary"} className="rounded-none text-xs">
                                                     {resp.isActive ? 'Active' : 'Inactive'}
                                                 </Badge>
                                             </div>
                                             {/* Department and Sub-department info */}
-                                            <div className="flex flex-wrap gap-2 mb-2">
-                                                <Badge variant="outline" className="text-xs">
+                                            <div className="flex flex-wrap gap-1 mb-2">
+                                                <Badge variant="outline" className="rounded-none text-xs">
                                                     <Building2 className="h-3 w-3 mr-1" />
                                                     {resp.departmentName}
                                                 </Badge>
-                                                <Badge variant="outline" className="text-xs bg-blue-50">
+                                                <Badge variant="outline" className="rounded-none text-xs bg-blue-50">
                                                     <Layers className="h-3 w-3 mr-1" />
                                                     {resp.subDepartmentName}
                                                 </Badge>
                                             </div>
                                             {resp.description && (
-                                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{resp.description}</p>
+                                                <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{resp.description}</p>
                                             )}
                                             {/* Assigned Staff List */}
                                             {resp.assignedStaffList.length > 0 && (
-                                                <div className="mb-3">
-                                                    <p className="text-xs font-medium text-muted-foreground mb-1">Assigned Staff:</p>
+                                                <div className="mb-2">
+                                                    <p className="text-xs font-medium text-muted-foreground mb-1">Assigned:</p>
                                                     <div className="flex flex-wrap gap-1">
                                                         {resp.assignedStaffList.slice(0, 5).map((staff) => (
-                                                            <Badge key={staff.id} variant="secondary" className="text-xs">
+                                                            <Badge key={staff.id} variant="secondary" className="rounded-none text-xs">
                                                                 <Users className="h-3 w-3 mr-1" />
                                                                 {staff.name}
                                                             </Badge>
                                                         ))}
                                                         {resp.assignedStaffList.length > 5 && (
-                                                            <Badge variant="secondary" className="text-xs">
+                                                            <Badge variant="secondary" className="rounded-none text-xs">
                                                                 +{resp.assignedStaffList.length - 5} more
                                                             </Badge>
                                                         )}
                                                     </div>
                                                 </div>
                                             )}
-                                            <div className="grid grid-cols-4 gap-4 text-center">
-                                                <div className="p-2 rounded bg-muted">
-                                                    <p className="text-lg font-semibold text-blue-600">{resp.assignedStaff}</p>
+                                            <div className="grid grid-cols-4 gap-2 text-center">
+                                                <div className="p-2 bg-muted">
+                                                    <p className="text-base font-semibold text-blue-600">{resp.assignedStaff}</p>
                                                     <p className="text-xs text-muted-foreground">Assigned</p>
                                                 </div>
-                                                <div className="p-2 rounded bg-muted">
-                                                    <p className="text-lg font-semibold text-indigo-600">{resp.totalSubmissions}</p>
+                                                <div className="p-2 bg-muted">
+                                                    <p className="text-base font-semibold text-indigo-600">{resp.totalSubmissions}</p>
                                                     <p className="text-xs text-muted-foreground">Submissions</p>
                                                 </div>
-                                                <div className="p-2 rounded bg-muted">
-                                                    <p className="text-lg font-semibold text-green-600">{resp.verified}</p>
+                                                <div className="p-2 bg-muted">
+                                                    <p className="text-base font-semibold text-green-600">{resp.verified}</p>
                                                     <p className="text-xs text-muted-foreground">Verified</p>
                                                 </div>
-                                                <div className="p-2 rounded bg-muted">
-                                                    <p className={`text-lg font-semibold ${resp.completionRate >= 80 ? 'text-green-600' : resp.completionRate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                <div className="p-2 bg-muted">
+                                                    <p className={`text-base font-semibold ${resp.completionRate >= 80 ? 'text-green-600' : resp.completionRate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
                                                         {resp.completionRate}%
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Completion</p>
@@ -1041,58 +1211,58 @@ export default function AdminDashboardPage() {
 
    
          {/* Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <Card className="rounded-none border-l-2 border-l-blue-500 cursor-pointer hover:bg-muted/50 transition-colors">
                     <Link href="/admin/users">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileCheck className="h-5 w-5" />
+                        <CardHeader className="py-4">
+                            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                                <FileCheck className="h-4 w-4 text-blue-500" />
                                Manage Users
                             </CardTitle>
-                            <CardDescription>
-                                Create,Edit,Delete and Reset Passwords for Users
+                            <CardDescription className="text-xs">
+                                Create, edit, delete and reset passwords
                             </CardDescription>
                         </CardHeader>
                     </Link>
                 </Card>
 
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <Card className="rounded-none border-l-2 border-l-green-500 cursor-pointer hover:bg-muted/50 transition-colors">
                     <Link href="/admin/departments">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <ClipboardList className="h-5 w-5" />
-                                Manage Department
+                        <CardHeader className="py-4">
+                            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                                <ClipboardList className="h-4 w-4 text-green-500" />
+                                Manage Departments
                             </CardTitle>
-                            <CardDescription>
-                                Create and manage departments for your organization
+                            <CardDescription className="text-xs">
+                                Create and manage departments
                             </CardDescription>
                         </CardHeader>
                     </Link>
                 </Card>
 
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <Card className="rounded-none border-l-2 border-l-purple-500 cursor-pointer hover:bg-muted/50 transition-colors">
                     <Link href="/admin/responsibilities">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                Manage Responsibilties
+                        <CardHeader className="py-4">
+                            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                                <Briefcase className="h-4 w-4 text-purple-500" />
+                                Manage Responsibilities
                             </CardTitle>
-                            <CardDescription>
-                               Manage Responsibilities in the organization 
+                            <CardDescription className="text-xs">
+                               Manage responsibilities in organization
                             </CardDescription>
                         </CardHeader>
                     </Link>
                 </Card>
 
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <Card className="rounded-none border-l-2 border-l-amber-500 cursor-pointer hover:bg-muted/50 transition-colors">
                     <Link href="/admin/work-submissions">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Briefcase className="h-5 w-5" />
-                                Manage Work Submissions
+                        <CardHeader className="py-4">
+                            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                                <Target className="h-4 w-4 text-amber-500" />
+                                Work Submissions
                             </CardTitle>
-                            <CardDescription>
-                                Review and verify work submissions from employees
+                            <CardDescription className="text-xs">
+                                Review and verify submissions
                             </CardDescription>
                         </CardHeader>
                     </Link>

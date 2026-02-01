@@ -6,7 +6,6 @@ import { api } from "@/lib/api"
 import { WorkSubmission } from "@/types/cir"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
 import { SubmissionStatusBadge } from "@/components/ui/status-badge"
 import { Clock, ArrowLeft, Link2, FileText } from "lucide-react"
 import { format } from "date-fns"
@@ -21,9 +20,7 @@ export default function SubmissionDetailsPage({
   const submissionId = params.submissionId  // ✅ CHANGED
 
   const [submission, setSubmission] = useState<WorkSubmission | null>(null)
-  const [rejectionReason, setRejectionReason] = useState("")
   const [loading, setLoading] = useState(true)
-  const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
     fetchSubmission()
@@ -37,29 +34,6 @@ export default function SubmissionDetailsPage({
       toast.error("Failed to load submission")
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleVerify(approved: boolean) {
-    if (!submission) return
-
-    if (!approved && !rejectionReason.trim()) {
-      toast.error("Rejection reason is required")
-      return
-    }
-
-    setVerifying(true)
-    try {
-      await api.workSubmissions.verify(submission.id, {
-        approved,
-        managerComment: approved ? undefined : rejectionReason,
-      })
-      toast.success(approved ? "Submission approved" : "Submission rejected")
-      router.back()
-    } catch (e: any) {
-      toast.error(e.message || "Action failed")
-    } finally {
-      setVerifying(false)
     }
   }
 
@@ -79,17 +53,17 @@ export default function SubmissionDetailsPage({
           <CardTitle>
             {submission.assignment?.responsibility?.title}
           </CardTitle>
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-  <div className="flex gap-4">
-    <span>{submission.staff?.name}</span>
-    <span>{format(new Date(submission.submittedAt), "PPP p")}</span>
-  </div>
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <div className="flex gap-4">
+              <span>{submission.staff?.name}</span>
+              <span>{format(new Date(submission.submittedAt), "PPP p")}</span>
+            </div>
 
-  <SubmissionStatusBadge
-    status={submission.status}
-    className="border dark:border-white px-3 py-1 w-fit"
-  />
-</div>
+            <SubmissionStatusBadge
+              status={submission.status}
+              className="border dark:border-white px-3 py-1 w-fit"
+            />
+          </div>
 
         </CardHeader>
 
@@ -130,32 +104,8 @@ export default function SubmissionDetailsPage({
             </div>
           )}
 
-          {(submission.status === "SUBMITTED" ||
-            submission.status === "PENDING") && (
-            <>
-              <Textarea
-                placeholder="Rejection reason"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-              />
-              <div className="flex gap-3">
-                <Button
-                  className="bg-white border text-black dark:bg-black"
-                  disabled={verifying}
-                  onClick={() => handleVerify(false)}
-                >
-                  Reject
-                </Button>
-                <Button
-                  className="bg-black dark:bg-white "
-                  disabled={verifying}
-                  onClick={() => handleVerify(true)}
-                >
-                  Approve
-                </Button>
-              </div>
-            </>
-          )}
+          {/* Verification section removed - Staff cannot verify submissions */}
+          {/* Only managers have access to approve/reject from their dashboard */}
         </CardContent>
       </Card>
     </div>

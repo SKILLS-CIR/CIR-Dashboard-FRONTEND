@@ -3,10 +3,10 @@
 import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import { api } from "@/lib/api"
-import { Responsibility } from "@/types/cir"
-import { Card, CardContent } from "@/components/ui/card"
+import { Responsibility, WorkSubmission, Assignment } from "@/types/cir"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, RefreshCw, Clock, Calendar } from "lucide-react"
 import {
     format,
     startOfMonth,
@@ -17,7 +17,10 @@ import {
     startOfWeek,
     endOfWeek,
     isWithinInterval,
-    parseISO
+    parseISO,
+    isToday as isDateToday,
+    isBefore,
+    startOfToday
 } from "date-fns"
 import { cn } from "@/lib/utils"
 import {
@@ -29,6 +32,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import DashboardHeader from "@/components/dashboard-header"
+import { getSubmissionsForDate } from "@/lib/responsibility-status"
 
 // Color palette for responsibilities
 const COLORS = [
@@ -42,11 +46,28 @@ const COLORS = [
     "bg-teal-500",
 ]
 
+interface DayData {
+    date: Date
+    submissions: WorkSubmission[]
+    totalHours: number
+    hasVerified: boolean
+    hasSubmitted: boolean
+    hasRejected: boolean
+    hasPending: boolean
+    isMissed: boolean  // Past day with no submissions
+}
+
 export default function StaffResponsibilitiesPage() {
     const { user } = useAuth()
     const [responsibilities, setResponsibilities] = useState<Responsibility[]>([])
+    const [assignments, setAssignments] = useState<Assignment[]>([])
+    const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
     const [isLoading, setIsLoading] = useState(true)
-    const [currentMonth, setCurrentMonth] = useState(new Date())
+
+    // Separate month states for each calendar
+    const [submissionsMonth, setSubmissionsMonth] = useState(new Date())
+    const [responsibilitiesMonth, setResponsibilitiesMonth] = useState(new Date())
+
     const [selectedResponsibility, setSelectedResponsibility] = useState<Responsibility | null>(null)
     const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -55,58 +76,73 @@ export default function StaffResponsibilitiesPage() {
     const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null)
     const [dayModalOpen, setDayModalOpen] = useState(false)
 
-    async function fetchResponsibilities() {
+    // Submissions modal state - shows all submissions for a specific day
+    const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false)
+    const [selectedDateSubmissions, setSelectedDateSubmissions] = useState<WorkSubmission[]>([])
+    const [selectedSubmissionDate, setSelectedSubmissionDate] = useState<Date | null>(null)
+
+    const today = useMemo(() => startOfToday(), [])
+
+    async function fetchData() {
         setIsLoading(true)
         try {
-            // Get all responsibilities - the backend already filters by user's scope
-            const data = await api.responsibilities.getAll()
-            setResponsibilities(data)
+            const [respData, assignmentsData, submissionsData] = await Promise.all([
+                api.responsibilities.getAll(),
+                api.assignments.getAll(),
+                api.workSubmissions.getAll(),
+            ])
+            setResponsibilities(respData)
+            setAssignments(assignmentsData)
+            setAllSubmissions(submissionsData)
         } catch (error) {
-            console.error("Failed to fetch responsibilities:", error)
+            console.error("Failed to fetch data:", error)
         } finally {
             setIsLoading(false)
         }
     }
 
     useEffect(() => {
-        fetchResponsibilities()
+        fetchData()
     }, [])
 
-    // Generate calendar days for current month (including padding days)
-    const calendarDays = useMemo(() => {
-        const monthStart = startOfMonth(currentMonth)
-        const monthEnd = endOfMonth(currentMonth)
+    // Generate calendar days for responsibilities month (including padding days)
+    const responsibilitiesCalendarDays = useMemo(() => {
+        const monthStart = startOfMonth(responsibilitiesMonth)
+        const monthEnd = endOfMonth(responsibilitiesMonth)
         const calendarStart = startOfWeek(monthStart)
         const calendarEnd = endOfWeek(monthEnd)
 
         return eachDayOfInterval({ start: calendarStart, end: calendarEnd })
-    }, [currentMonth])
+    }, [responsibilitiesMonth])
 
-    // Get weeks (array of 7-day arrays)
-    const weeks = useMemo(() => {
+    // Get weeks for responsibilities calendar (array of 7-day arrays)
+    const responsibilitiesWeeks = useMemo(() => {
         const result: Date[][] = []
-        for (let i = 0; i < calendarDays.length; i += 7) {
-            result.push(calendarDays.slice(i, i + 7))
+        for (let i = 0; i < responsibilitiesCalendarDays.length; i += 7) {
+            result.push(responsibilitiesCalendarDays.slice(i, i + 7))
         }
         return result
-    }, [calendarDays])
+    }, [responsibilitiesCalendarDays])
 
-    // Map responsibilities to days with colors
-    const responsibilityMap = useMemo(() => {
-        const map = new Map<string, { resp: Responsibility; color: string; isStart: boolean; isEnd: boolean }[]>()
+    // Map ASSIGNMENTS (not responsibilities) to days with colors
+    // This shows the actual assigned responsibilities to the user
+    const assignmentMap = useMemo(() => {
+        const map = new Map<string, { assignment: Assignment; resp: Responsibility; color: string; isStart: boolean; isEnd: boolean }[]>()
 
-        responsibilities.forEach((resp, index) => {
-            if (!resp.startDate || !resp.endDate) return
+        assignments.forEach((assignment, index) => {
+            const resp = assignment.responsibility
+            if (!resp || !resp.startDate || !resp.endDate) return
 
             const color = COLORS[index % COLORS.length]
             const start = parseISO(resp.startDate)
             const end = parseISO(resp.endDate)
 
-            calendarDays.forEach(day => {
+            responsibilitiesCalendarDays.forEach(day => {
                 if (isWithinInterval(day, { start, end })) {
                     const dateStr = format(day, 'yyyy-MM-dd')
                     const existing = map.get(dateStr) || []
                     existing.push({
+                        assignment,
                         resp,
                         color,
                         isStart: isSameDay(day, start),
@@ -118,16 +154,72 @@ export default function StaffResponsibilitiesPage() {
         })
 
         return map
-    }, [responsibilities, calendarDays])
+    }, [assignments, responsibilitiesCalendarDays])
 
-    function navigateMonth(direction: 'prev' | 'next') {
-        const newMonth = new Date(currentMonth)
+    // Map submissions by date for submissions calendar
+    const submissionDayDataMap = useMemo(() => {
+        const map = new Map<string, DayData>()
+
+        // Get just the days in the submissions month view
+        const monthStart = startOfMonth(submissionsMonth)
+        const monthEnd = endOfMonth(submissionsMonth)
+        const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+
+        monthDays.forEach(date => {
+            const dateStr = format(date, 'yyyy-MM-dd')
+            const daySubmissions = getSubmissionsForDate(allSubmissions, date)
+
+            const totalHours = daySubmissions.reduce((sum, s) => sum + ((s as any).hoursWorked || 0), 0)
+
+            const hasVerified = daySubmissions.some(s => s.status === 'VERIFIED')
+            const hasSubmitted = daySubmissions.some(s => s.status === 'SUBMITTED')
+            const hasRejected = daySubmissions.some(s => s.status === 'REJECTED')
+            const hasPending = daySubmissions.some(s => s.status === 'PENDING')
+
+            // A day is "missed" if it's in the past and has no submissions
+            const isPastDay = isBefore(date, today) && !isSameDay(date, today)
+            const isMissed = isPastDay && daySubmissions.length === 0
+
+            map.set(dateStr, {
+                date,
+                submissions: daySubmissions,
+                totalHours,
+                hasVerified,
+                hasSubmitted,
+                hasRejected,
+                hasPending,
+                isMissed,
+            })
+        })
+
+        return map
+    }, [submissionsMonth, allSubmissions, today])
+
+    // Get submission calendar days (just for submissions month)
+    const submissionCalendarDays = useMemo(() => {
+        const monthStart = startOfMonth(submissionsMonth)
+        const monthEnd = endOfMonth(submissionsMonth)
+        return eachDayOfInterval({ start: monthStart, end: monthEnd })
+    }, [submissionsMonth])
+
+    function navigateSubmissionsMonth(direction: 'prev' | 'next') {
+        const newMonth = new Date(submissionsMonth)
         if (direction === 'prev') {
             newMonth.setMonth(newMonth.getMonth() - 1)
         } else {
             newMonth.setMonth(newMonth.getMonth() + 1)
         }
-        setCurrentMonth(newMonth)
+        setSubmissionsMonth(newMonth)
+    }
+
+    function navigateResponsibilitiesMonth(direction: 'prev' | 'next') {
+        const newMonth = new Date(responsibilitiesMonth)
+        if (direction === 'prev') {
+            newMonth.setMonth(newMonth.getMonth() - 1)
+        } else {
+            newMonth.setMonth(newMonth.getMonth() + 1)
+        }
+        setResponsibilitiesMonth(newMonth)
     }
 
     function openDetails(resp: Responsibility) {
@@ -139,6 +231,44 @@ export default function StaffResponsibilitiesPage() {
         setSelectedDayDate(date)
         setSelectedDayResponsibilities(dayResps)
         setDayModalOpen(true)
+    }
+
+    function openSubmissionsModal(date: Date, submissions: WorkSubmission[]) {
+        setSelectedSubmissionDate(date)
+        setSelectedDateSubmissions(submissions)
+        setSubmissionsModalOpen(true)
+    }
+
+    // Get status color for submission items
+    function getSubmissionStatusColor(status: string) {
+        switch (status) {
+            case 'VERIFIED':
+                return 'bg-purple-600'  // Purple for verified (not green to avoid confusion)
+            case 'SUBMITTED':
+                return 'bg-blue-600'    // Blue for submitted
+            case 'REJECTED':
+                return 'bg-red-600'     // Red for rejected
+            default:
+                return 'bg-gray-600'
+        }
+    }
+
+    // Get day background color based on status
+    function getDayBackgroundColor(dayData: DayData | undefined, isCurrentMonth: boolean): string {
+        if (!isCurrentMonth) return 'bg-muted/50'
+        if (!dayData) return ''
+
+        // Missed day (past with no submissions) = red background
+        if (dayData.isMissed) {
+            return 'bg-red-100 dark:bg-red-950/50'
+        }
+
+        // Has submissions = green background
+        if (dayData.submissions.length > 0) {
+            return 'bg-green-100 dark:bg-green-950/50'
+        }
+
+        return ''
     }
 
     if (isLoading) {
@@ -158,106 +288,265 @@ export default function StaffResponsibilitiesPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">My Responsibilities</h1>
                     <p className="text-muted-foreground">
-                        View your assigned responsibilities on a calendar
+                        View your assigned responsibilities and work submissions
                     </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchResponsibilities}>
+                <Button variant="outline" size="sm" onClick={fetchData}>
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Refresh
                 </Button>
             </div>
 
-            {/* Calendar Card */}
-            <Card>
-                <CardContent className="p-0">
-                    {/* Calendar Header */}
-                    <div className="flex items-center justify-between p-4 border-b">
-                        <div className="flex items-center gap-4">
-                            <Button variant="ghost" size="icon" onClick={() => navigateMonth('prev')}>
-                                <ChevronLeft className="h-5 w-5" />
-                            </Button>
-                            <h2 className="text-xl font-semibold min-w-[180px] text-center">
-                                {format(currentMonth, 'MMMM yyyy')}
-                            </h2>
-                            <Button variant="ghost" size="icon" onClick={() => navigateMonth('next')}>
-                                <ChevronRight className="h-5 w-5" />
-                            </Button>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                            {responsibilities.length} responsibilities
-                        </div>
-                    </div>
+            {/* Two Calendars Grid */}
+            <div className="grid gap-6 lg:grid-cols-2">
 
-                    {/* Days of Week Header */}
-                    <div className="grid grid-cols-7 bg-primary text-primary-foreground">
-                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                            <div key={day} className="p-3 text-center font-medium text-sm">
-                                {day}
+                {/* ============ SUBMISSIONS CALENDAR ============ */}
+                <Card className="border border-foreground/10 overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5" />
+                            Work Submissions
+                        </CardTitle>
+                        <CardDescription>Click on a date to view submissions</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {/* Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => navigateSubmissionsMonth("prev")}>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <h2 className="text-lg font-semibold">
+                                    {format(submissionsMonth, "MMMM yyyy")}
+                                </h2>
+                                <Button variant="ghost" size="icon" onClick={() => navigateSubmissionsMonth("next")}>
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
                             </div>
-                        ))}
-                    </div>
 
-                    {/* Calendar Grid */}
-                    <div className="divide-y">
-                        {weeks.map((week, weekIndex) => (
-                            <div key={weekIndex} className="grid grid-cols-7 divide-x min-h-[120px]">
-                                {week.map(day => {
-                                    const dateStr = format(day, 'yyyy-MM-dd')
-                                    const dayResponsibilities = responsibilityMap.get(dateStr) || []
-                                    const isCurrentMonth = isSameMonth(day, currentMonth)
-                                    const isToday = isSameDay(day, new Date())
+                            <div className="flex items-center gap-3 text-xs">
+                                <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 rounded bg-green-500" />
+                                    <span>Submitted</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 rounded bg-red-500" />
+                                    <span>Missed</span>
+                                </div>
+                            </div>
+                        </div>
 
-                                    return (
-                                        <div
-                                            key={dateStr}
-                                            className={cn(
-                                                "p-2 relative",
-                                                !isCurrentMonth && "bg-muted/50",
-                                                isToday && "bg-blue-50 dark:bg-blue-950"
-                                            )}
-                                        >
-                                            {/* Day Number */}
+                        {/* Day Headers */}
+                        <div className="grid grid-cols-7 bg-black text-white text-sm font-medium">
+                            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                                <div key={day} className="py-2 text-center">
+                                    {day}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Calendar Grid */}
+                        <div className="grid grid-cols-7 border-t border-foreground/10">
+                            {/* Empty cells for alignment */}
+                            {Array.from({ length: submissionCalendarDays[0]?.getDay() || 0 }).map((_, i) => (
+                                <div
+                                    key={`empty-${i}`}
+                                    className="min-h-[100px] border border-foreground/10 bg-muted/30"
+                                />
+                            ))}
+
+                            {submissionCalendarDays.map(date => {
+                                const dateStr = format(date, "yyyy-MM-dd")
+                                const isTodayDate = isDateToday(date)
+                                const dayData = submissionDayDataMap.get(dateStr)
+                                const bgColor = getDayBackgroundColor(dayData, true)
+
+                                return (
+                                    <div
+                                        key={dateStr}
+                                        onClick={() => dayData && openSubmissionsModal(date, dayData.submissions)}
+                                        className={cn(
+                                            "border border-foreground/10 p-2 cursor-pointer transition hover:opacity-80",
+                                            "min-h-[100px]",
+                                            bgColor,
+                                            isTodayDate && "ring-2 ring-blue-500 ring-inset"
+                                        )}
+                                    >
+                                        {/* Date and Hours */}
+                                        <div className="flex items-center justify-between mb-1">
                                             <span className={cn(
                                                 "text-sm font-medium",
-                                                !isCurrentMonth && "text-muted-foreground",
-                                                isToday && "text-blue-600 dark:text-blue-400 font-bold"
+                                                isTodayDate && "text-blue-600 font-bold"
                                             )}>
-                                                {day.getDate()}
+                                                {format(date, "d")}
                                             </span>
-
-                                            {/* Responsibilities */}
-                                            <div className="mt-1 space-y-1">
-                                                {dayResponsibilities.slice(0, 3).map(({ resp, color, isStart, isEnd }, idx) => (
-                                                    <button
-                                                        key={`${resp.id}-${idx}`}
-                                                        onClick={() => openDetails(resp)}
-                                                        className={cn(
-                                                            "w-full text-left text-xs text-white px-2 py-1 truncate hover:opacity-80 transition-opacity",
-                                                            color,
-                                                            isStart && "rounded-l-md",
-                                                            isEnd && "rounded-r-md",
-                                                            !isStart && !isEnd && "rounded-none",
-                                                            isStart && isEnd && "rounded-md"
-                                                        )}
-                                                        title={resp.title}
-                                                    >
-                                                        {resp.title}
-                                                    </button>
-                                                ))}
-                                                {dayResponsibilities.length > 3 && (
-                                                    <button
-                                                        className="text-xs text-primary hover:underline font-medium"
-                                                        onClick={() => openDayModal(day, dayResponsibilities.map(d => ({ resp: d.resp, color: d.color })))}
-                                                    >
-                                                        +{dayResponsibilities.length - 3} more
-                                                    </button>
-                                                )}
-                                            </div>
+                                            {(dayData?.totalHours ?? 0) > 0 && (
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                    <Clock className="h-2.5 w-2.5" />
+                                                    {(dayData?.totalHours ?? 0).toFixed(1)}h
+                                                </span>
+                                            )}
                                         </div>
-                                    )
-                                })}
+
+                                        {/* Submission Items */}
+                                        <div className="space-y-1">
+                                            {dayData?.submissions.slice(0, 3).map(submission => (
+                                                <div
+                                                    key={submission.id}
+                                                    className={cn(
+                                                        "text-[10px] px-2 py-0.5 rounded truncate text-white",
+                                                        getSubmissionStatusColor(submission.status || 'SUBMITTED')
+                                                    )}
+                                                    title={submission.assignment?.responsibility?.title}
+                                                >
+                                                    {submission.assignment?.responsibility?.title || "Work"}
+                                                </div>
+                                            ))}
+
+                                            {dayData && dayData.submissions.length > 3 && (
+                                                <div className="text-[10px] text-muted-foreground">
+                                                    +{dayData.submissions.length - 3} more
+                                                </div>
+                                            )}
+
+                                            {/* Show missed indicator */}
+                                            {dayData?.isMissed && (
+                                                <div className="text-[10px] text-red-600 dark:text-red-400 font-medium">
+                                                    No submission
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* ============ RESPONSIBILITIES CALENDAR ============ */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5" />
+                            Assigned Responsibilities
+                        </CardTitle>
+                        <CardDescription>{assignments.length} responsibilities assigned to you</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {/* Calendar Header */}
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <div className="flex items-center gap-4">
+                                <Button variant="ghost" size="icon" onClick={() => navigateResponsibilitiesMonth('prev')}>
+                                    <ChevronLeft className="h-5 w-5" />
+                                </Button>
+                                <h2 className="text-lg font-semibold min-w-[140px] text-center">
+                                    {format(responsibilitiesMonth, 'MMMM yyyy')}
+                                </h2>
+                                <Button variant="ghost" size="icon" onClick={() => navigateResponsibilitiesMonth('next')}>
+                                    <ChevronRight className="h-5 w-5" />
+                                </Button>
                             </div>
-                        ))}
+                        </div>
+
+                        {/* Days of Week Header */}
+                        <div className="grid grid-cols-7 bg-primary text-primary-foreground">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <div key={day} className="p-2 text-center font-medium text-xs">
+                                    {day}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Calendar Grid */}
+                        <div className="divide-y">
+                            {responsibilitiesWeeks.map((week, weekIndex) => (
+                                <div key={weekIndex} className="grid grid-cols-7 divide-x min-h-[90px]">
+                                    {week.map(day => {
+                                        const dateStr = format(day, 'yyyy-MM-dd')
+                                        const dayAssignments = assignmentMap.get(dateStr) || []
+                                        const isCurrentMonth = isSameMonth(day, responsibilitiesMonth)
+                                        const isToday = isSameDay(day, new Date())
+
+                                        return (
+                                            <div
+                                                key={dateStr}
+                                                className={cn(
+                                                    "p-1.5 relative",
+                                                    !isCurrentMonth && "bg-muted/50",
+                                                    isToday && "bg-blue-50 dark:bg-blue-950"
+                                                )}
+                                            >
+                                                {/* Day Number */}
+                                                <span className={cn(
+                                                    "text-xs font-medium",
+                                                    !isCurrentMonth && "text-muted-foreground",
+                                                    isToday && "text-blue-600 dark:text-blue-400 font-bold"
+                                                )}>
+                                                    {day.getDate()}
+                                                </span>
+
+                                                {/* Assigned Responsibilities */}
+                                                <div className="mt-1 space-y-0.5">
+                                                    {dayAssignments.slice(0, 2).map(({ assignment, resp, color, isStart, isEnd }, idx) => (
+                                                        <button
+                                                            key={`${assignment.id}-${idx}`}
+                                                            onClick={() => openDetails(resp)}
+                                                            className={cn(
+                                                                "w-full text-left text-[9px] text-white px-1 py-0.5 truncate hover:opacity-80 transition-opacity",
+                                                                color,
+                                                                isStart && "rounded-l",
+                                                                isEnd && "rounded-r",
+                                                                !isStart && !isEnd && "rounded-none",
+                                                                isStart && isEnd && "rounded"
+                                                            )}
+                                                            title={resp.title}
+                                                        >
+                                                            {resp.title}
+                                                        </button>
+                                                    ))}
+                                                    {dayAssignments.length > 2 && (
+                                                        <button
+                                                            className="text-[9px] text-primary hover:underline font-medium"
+                                                            onClick={() => openDayModal(day, dayAssignments.map(d => ({ resp: d.resp, color: d.color })))}
+                                                        >
+                                                            +{dayAssignments.length - 2} more
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Status Legend */}
+            <Card>
+                <CardContent className="py-4">
+                    <div className="flex flex-wrap items-center gap-6 justify-center">
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded bg-purple-600" />
+                            <span className="text-sm">Verified</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded bg-blue-600" />
+                            <span className="text-sm">Submitted</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded bg-red-600" />
+                            <span className="text-sm">Rejected</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-950 border" />
+                            <span className="text-sm">Day with Submissions</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950 border" />
+                            <span className="text-sm">Missed Day</span>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -342,6 +631,77 @@ export default function StaffResponsibilitiesPage() {
                                 </div>
                             </button>
                         ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Submissions Modal - Shows all submissions for a specific day */}
+            <Dialog open={submissionsModalOpen} onOpenChange={setSubmissionsModalOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedSubmissionDate && format(selectedSubmissionDate, "MMMM d, yyyy")}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {selectedDateSubmissions.length > 0
+                                ? `${selectedDateSubmissions.length} submission${selectedDateSubmissions.length > 1 ? 's' : ''} on this day`
+                                : 'No submissions on this day'
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                        {selectedDateSubmissions.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                                <p>No work was submitted on this date.</p>
+                            </div>
+                        ) : (
+                            selectedDateSubmissions.map(submission => (
+                                <div
+                                    key={submission.id}
+                                    className="p-4 border rounded-lg space-y-2"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-medium">
+                                            {submission.assignment?.responsibility?.title || 'Work Submission'}
+                                        </p>
+                                        <Badge
+                                            className={cn(
+                                                "text-white",
+                                                getSubmissionStatusColor(submission.status || 'SUBMITTED')
+                                            )}
+                                        >
+                                            {submission.status || 'SUBMITTED'}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="h-4 w-4" />
+                                            <span>{(submission as any).hoursWorked || 0} hours</span>
+                                        </div>
+                                        <span>
+                                            Submitted: {format(new Date(submission.submittedAt), "h:mm a")}
+                                        </span>
+                                    </div>
+
+                                    {submission.staffComment && (
+                                        <div className="text-sm">
+                                            <span className="font-medium">Comment: </span>
+                                            <span className="text-muted-foreground">{submission.staffComment}</span>
+                                        </div>
+                                    )}
+
+                                    {submission.managerComment && (
+                                        <div className="text-sm">
+                                            <span className="font-medium">Manager Feedback: </span>
+                                            <span className="text-muted-foreground">{submission.managerComment}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>

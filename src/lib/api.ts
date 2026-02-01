@@ -254,8 +254,14 @@ export const responsibilitiesApi = {
             body: JSON.stringify(data),
         }),
 
-    getAll: (): Promise<Responsibility[]> =>
-        fetchApi('/responsibilities'),
+    getAll: (options?: { includeExpired?: boolean }): Promise<Responsibility[]> => {
+        const params = new URLSearchParams()
+        if (options?.includeExpired) {
+            params.append('includeExpired', 'true')
+        }
+        const queryString = params.toString()
+        return fetchApi(`/responsibilities${queryString ? `?${queryString}` : ''}`)
+    },
 
     getById: (id: string): Promise<Responsibility> =>
         fetchApi(`/responsibilities/${id}`),

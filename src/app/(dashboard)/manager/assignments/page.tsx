@@ -138,7 +138,7 @@ export default function ManagerAssignmentsPage() {
 
             const [assignmentsData, responsibilitiesData, employeesData, groupsData] = await Promise.all([
                 api.assignments.getAll(),
-                api.responsibilities.getAll(),
+                api.responsibilities.getAll({ includeExpired: true }),
                 api.employees.getAll(),
                 fetchGroupsSafe(),
             ])
