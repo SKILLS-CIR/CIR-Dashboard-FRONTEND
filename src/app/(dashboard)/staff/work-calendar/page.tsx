@@ -955,12 +955,12 @@ export default function StaffWorkCalendarPage() {
 
                             {/* Manager's Feedback */}
                             {resubmitSubmission.managerComment && (
-                                <div className="p-4 bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-800 rounded-lg">
-                                    <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center gap-2">
-                                        <AlertTriangle className="h-4 w-4" />
+                                <div className="p-4 ">
+                                    <p className="text-sm font-semibold  mb-2 flex items-center gap-2">
+                                        {/* <AlertTriangle className="h-4 w-4" /> */}
                                         Manager's Feedback:
                                     </p>
-                                    <p className="text-red-600 dark:text-red-300">
+                                    <p className="">
                                         {resubmitSubmission.managerComment}
                                     </p>
                                 </div>

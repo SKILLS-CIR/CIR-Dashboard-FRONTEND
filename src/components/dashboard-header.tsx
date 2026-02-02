@@ -394,10 +394,10 @@ export default function DashboardHeader() {
   return (
     <>
       <header className="w-full bg-background lg:border-b">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 lg:py-4 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl xl:max-w-none xl:mx-0 xl:ml-4 mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 lg:py-4 flex items-center justify-between gap-2 sm:gap-4">
 
-          {/* LEFT: Logo + Name + Search Bar */}
-          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+          {/* LEFT: Logo + Name */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             {/* Logo + Brand Name - hidden on mobile since it's in sidebar */}
             <div
               className="flex items-center gap-2 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity hidden lg:flex"
@@ -410,8 +410,10 @@ export default function DashboardHeader() {
                 CIR DASHBOARD
               </span>
             </div>
+          </div>
 
-            {/* Search Bar - hidden on mobile, shown on larger screens */}
+          {/* CENTER: Search Bar - hidden on mobile, shown on larger screens */}
+          <div className="flex-1 flex justify-center">
             <div
               className="relative w-72 cursor-pointer hidden md:block"
               onClick={() => setOpen(true)}

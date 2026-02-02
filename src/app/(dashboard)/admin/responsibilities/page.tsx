@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/providers/auth-context"
-import { Responsibility, SubDepartment, Department, CreateResponsibilityDto } from "@/types/cir"
+import { Responsibility, SubDepartment, Department, CreateResponsibilityDto, UpdateResponsibilityDto } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,7 +40,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { Search, Plus, Pencil, Trash2, CalendarIcon, Building } from "lucide-react"
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { Search, Plus, Pencil, Trash2, CalendarIcon, Building, ChevronDown, ChevronRight, Users, FolderOpen } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -57,6 +62,14 @@ export default function AdminResponsibilitiesPage() {
     const [selectedFilterCycle, setSelectedFilterCycle] = useState<string>("all")
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
+
+    // Edit state
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
+    const [editingResponsibility, setEditingResponsibility] = useState<Responsibility | null>(null)
+    const [isEditing, setIsEditing] = useState(false)
+
+    // Expanded rows for viewing details
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
     // Form state - matches schema exactly
     const [title, setTitle] = useState("")
@@ -76,7 +89,7 @@ export default function AdminResponsibilitiesPage() {
     async function fetchData() {
         try {
             const [responsibilitiesData, subDepartmentsData, departmentsData] = await Promise.all([
-                api.responsibilities.getAll(),
+                api.responsibilities.getAll({ includeRelations: true }),
                 api.subDepartments.getAll(),
                 api.departments.getAll(),
             ])
@@ -188,6 +201,72 @@ export default function AdminResponsibilitiesPage() {
             console.error("Failed to delete responsibility:", error)
             toast.error("Failed to delete responsibility")
         }
+    }
+
+    // Open edit dialog with responsibility data
+    function openEditDialog(resp: Responsibility) {
+        setEditingResponsibility(resp)
+        setTitle(resp.title || "")
+        setDescription(resp.description || "")
+        setCycle(resp.cycle || "")
+        setSelectedSubDepartment(resp.subDepartmentId || "")
+        setStartDate(resp.startDate ? new Date(resp.startDate) : undefined)
+        setEndDate(resp.endDate ? new Date(resp.endDate) : undefined)
+        setEditDialogOpen(true)
+    }
+
+    // Handle edit submit
+    async function handleEdit() {
+        if (!editingResponsibility) return
+
+        if (!title.trim()) {
+            toast.error("Title is required")
+            return
+        }
+        if (!cycle.trim() || !/^\d{4}-\d{2}$/.test(cycle)) {
+            toast.error("Cycle must be in YYYY-MM format")
+            return
+        }
+        if (startDate && endDate && startDate > endDate) {
+            toast.error("Start date must be before end date")
+            return
+        }
+
+        setIsEditing(true)
+        try {
+            const payload: UpdateResponsibilityDto = {
+                title: title.trim(),
+                cycle: cycle.trim(),
+                description: description.trim() || undefined,
+                startDate: startDate ? startDate.toISOString() : undefined,
+                endDate: endDate ? endDate.toISOString() : undefined,
+            }
+
+            await api.responsibilities.update(editingResponsibility.id, payload)
+            toast.success("Responsibility updated successfully")
+            setEditDialogOpen(false)
+            setEditingResponsibility(null)
+            resetForm()
+            fetchData()
+        } catch (error: any) {
+            console.error("Failed to update responsibility:", error)
+            toast.error(error.message || "Failed to update responsibility")
+        } finally {
+            setIsEditing(false)
+        }
+    }
+
+    // Toggle row expansion
+    function toggleRowExpansion(id: string) {
+        setExpandedRows(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(id)) {
+                newSet.delete(id)
+            } else {
+                newSet.add(id)
+            }
+            return newSet
+        })
     }
 
     // Helper to get sub-department name by ID
@@ -420,7 +499,7 @@ export default function AdminResponsibilitiesPage() {
                 </Select>
             </div>
 
-            {/* Responsibilities Table */}
+            {/* Responsibilities List */}
             <Card>
                 <CardHeader>
                     <CardTitle>All Responsibilities</CardTitle>
@@ -434,73 +513,321 @@ export default function AdminResponsibilitiesPage() {
                             No responsibilities found
                         </p>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Title</TableHead>
-                                    <TableHead>Sub-Department</TableHead>
-                                    <TableHead>Cycle</TableHead>
-                                    <TableHead>Date Range</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredResponsibilities.map((resp) => (
-                                    <TableRow key={resp.id}>
-                                        <TableCell>
-                                            <div>
-                                                <p className="font-medium">{resp.title}</p>
-                                                {resp.description && (
-                                                    <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                                                        {resp.description}
-                                                    </p>
-                                                )}
+                        <div className="space-y-4">
+                            {filteredResponsibilities.map((resp) => {
+                                const isExpanded = expandedRows.has(resp.id)
+                                const groupItems = (resp as any).groupItems || []
+                                const assignments = (resp as any).assignments || []
+
+                                return (
+                                    <Collapsible
+                                        key={resp.id}
+                                        open={isExpanded}
+                                        onOpenChange={() => toggleRowExpansion(resp.id)}
+                                    >
+                                        <div className="border rounded-lg">
+                                            <div className="flex items-center gap-3 p-4">
+                                                <CollapsibleTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        {isExpanded ? (
+                                                            <ChevronDown className="h-4 w-4" />
+                                                        ) : (
+                                                            <ChevronRight className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </CollapsibleTrigger>
+
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold">{resp.title}</h3>
+                                                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                                        <span className="flex items-center gap-1">
+                                                            <Building className="h-3 w-3" />
+                                                            {resp.subDepartment?.name || getSubDepartmentName(resp.subDepartmentId)}
+                                                        </span>
+                                                        {resp.cycle && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <Badge variant="outline">{resp.cycle}</Badge>
+                                                            </>
+                                                        )}
+                                                        {groupItems.length > 0 && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <FolderOpen className="h-3 w-3" />
+                                                                    {groupItems.length} group{groupItems.length !== 1 ? 's' : ''}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                        {assignments.length > 0 && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Users className="h-3 w-3" />
+                                                                    {assignments.length} staff assigned
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    {resp.startDate && resp.endDate ? (
+                                                        <Badge variant="secondary" className="text-xs">
+                                                            {format(new Date(resp.startDate), "MMM d")} - {format(new Date(resp.endDate), "MMM d")}
+                                                        </Badge>
+                                                    ) : null}
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            openEditDialog(resp)
+                                                        }}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-destructive"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleDelete(resp.id)
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                <Building className="h-3 w-3 text-muted-foreground" />
-                                                {resp.subDepartment?.name || getSubDepartmentName(resp.subDepartmentId)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{resp.cycle || 'N/A'}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {resp.startDate && resp.endDate ? (
-                                                <span className="text-sm">
-                                                    {format(new Date(resp.startDate), "MMM d")} - {format(new Date(resp.endDate), "MMM d, yyyy")}
-                                                </span>
-                                            ) : resp.startDate ? (
-                                                <span className="text-sm">From {format(new Date(resp.startDate), "MMM d, yyyy")}</span>
-                                            ) : resp.endDate ? (
-                                                <span className="text-sm">Until {format(new Date(resp.endDate), "MMM d, yyyy")}</span>
-                                            ) : (
-                                                <span className="text-muted-foreground">No dates set</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="sm">
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-destructive"
-                                                    onClick={() => handleDelete(resp.id)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+
+                                            <CollapsibleContent>
+                                                <div className="border-t px-4 pb-4 pt-4 space-y-4">
+                                                    {/* Description */}
+                                                    {resp.description && (
+                                                        <div>
+                                                            <h4 className="text-sm font-medium mb-1">Description</h4>
+                                                            <p className="text-sm text-muted-foreground">{resp.description}</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Date Range Details */}
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <h4 className="text-sm font-medium mb-1">Start Date</h4>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {resp.startDate ? format(new Date(resp.startDate), "PPP") : "Not set"}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium mb-1">End Date</h4>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {resp.endDate ? format(new Date(resp.endDate), "PPP") : "Not set"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Groups this responsibility belongs to */}
+                                                    {groupItems.length > 0 && (
+                                                        <div className="pt-4 border-t">
+                                                            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                                                <FolderOpen className="h-4 w-4" />
+                                                                Responsibility Groups
+                                                            </h4>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {groupItems.map((item: any) => (
+                                                                    <Badge key={item.id} variant="secondary">
+                                                                        {item.group?.name || 'Unknown Group'}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Assigned Staff */}
+                                                    {assignments.length > 0 && (
+                                                        <div className="pt-4 border-t">
+                                                            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                                                <Users className="h-4 w-4" />
+                                                                Assigned Staff
+                                                            </h4>
+                                                            <Table>
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        <TableHead>Name</TableHead>
+                                                                        <TableHead>Status</TableHead>
+                                                                        <TableHead>Assigned At</TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {assignments.map((assignment: any) => (
+                                                                        <TableRow key={assignment.id}>
+                                                                            <TableCell>
+                                                                                <p className="font-medium">
+                                                                                    {assignment.staff?.name || 'Unknown'}
+                                                                                </p>
+                                                                                <p className="text-xs text-muted-foreground">
+                                                                                    {assignment.staff?.email}
+                                                                                </p>
+                                                                            </TableCell>
+                                                                            <TableCell>
+                                                                                <Badge variant={
+                                                                                    assignment.status === 'VERIFIED' ? 'default' :
+                                                                                    assignment.status === 'SUBMITTED' ? 'secondary' :
+                                                                                    assignment.status === 'REJECTED' ? 'destructive' :
+                                                                                    'outline'
+                                                                                }>
+                                                                                    {assignment.status}
+                                                                                </Badge>
+                                                                            </TableCell>
+                                                                            <TableCell className="text-muted-foreground">
+                                                                                {assignment.assignedAt 
+                                                                                    ? format(new Date(assignment.assignedAt), "MMM d, yyyy")
+                                                                                    : 'N/A'}
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    )}
+
+                                                    {groupItems.length === 0 && assignments.length === 0 && !resp.description && (
+                                                        <p className="text-sm text-muted-foreground text-center py-2">
+                                                            No additional details available
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </CollapsibleContent>
+                                        </div>
+                                    </Collapsible>
+                                )
+                            })}
+                        </div>
                     )}
                 </CardContent>
             </Card>
+
+            {/* Edit Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Edit Responsibility</DialogTitle>
+                        <DialogDescription>
+                            Update the responsibility details
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        {/* Title */}
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-title">
+                                Title <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="edit-title"
+                                placeholder="Enter responsibility title"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Cycle */}
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-cycle">
+                                Cycle (YYYY-MM) <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="edit-cycle"
+                                value={cycle}
+                                onChange={(e) => setCycle(e.target.value)}
+                                placeholder="e.g., 2026-01"
+                                pattern="\d{4}-\d{2}"
+                            />
+                        </div>
+
+                        {/* Start Date */}
+                        <div className="space-y-2">
+                            <Label>Start Date (Optional)</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !startDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {startDate ? format(startDate, "PPP") : "Select start date"}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={startDate}
+                                        onSelect={setStartDate}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        {/* End Date */}
+                        <div className="space-y-2">
+                            <Label>End Date (Optional)</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !endDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {endDate ? format(endDate, "PPP") : "Select end date"}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={endDate}
+                                        onSelect={setEndDate}
+                                        disabled={(date) => startDate ? date < startDate : false}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-description">Description (Optional)</Label>
+                            <Textarea
+                                id="edit-description"
+                                placeholder="Describe the responsibility..."
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                            setEditDialogOpen(false)
+                            setEditingResponsibility(null)
+                            resetForm()
+                        }}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleEdit} disabled={isEditing}>
+                            {isEditing ? "Saving..." : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

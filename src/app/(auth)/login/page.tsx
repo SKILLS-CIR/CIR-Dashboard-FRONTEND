@@ -1,27 +1,27 @@
 // app/(auth)/login/page.tsx
-import { LoginForm } from "@/components/auth/login-form"
 import Image from "next/image"
+import { LoginForm } from "@/components/auth/login-form"
 
 export default function LoginPage() {
   return (
-    <div className="flex flex-col md:flex-row min-h-screen w-full  overflow-hidden">
-      {/* Left image (hidden on small screens) */}
-      <div className="w-full md:w-1/2 hidden md:inline-block relative">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[60%_40%]">
+      
+      {/* LEFT : Illustration */}
+      <div className="relative hidden lg:flex items-center justify-center ">
         <Image
-          src="/image.avif"
-          className="h-full w-full object-cover"
-          alt="Login Background"
+          src="/amma.jpg" // <-- use your second image illustration
+          alt="Login Illustration"
           fill
           priority
+          className="object-cover "
         />
       </div>
 
-      {/* Right side - Your LoginForm */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center px-4 py-8 md:py-0 ">
-        <div className="w-full max-w-md flex flex-col items-center justify-center">
-          <LoginForm />
-        </div>
+      {/* RIGHT : Login */}
+      <div className="flex items-center justify-center bg-white px-10">
+        <LoginForm />
       </div>
+
     </div>
   )
 }

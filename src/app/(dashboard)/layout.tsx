@@ -115,7 +115,7 @@ const navigation: NavigationItem[] = [
     roles: ["MANAGER"]
   },
   {
-    name: "Groups",
+    name: " Manage Group Responsibilities",
     href: "/manager/responsibility-groups",
     icon: <FolderOpen className="w-5 h-5" />,
     roles: ["MANAGER"]

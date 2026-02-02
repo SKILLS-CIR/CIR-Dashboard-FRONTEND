@@ -597,7 +597,7 @@ export default function StaffDashboardPage() {
             )}
 
             {/* Today's Assignments Overview */}
-            <Card>
+            {/* <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle className="flex items-center gap-2">
@@ -694,7 +694,7 @@ export default function StaffDashboardPage() {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* ============ ANALYTICS SECTION ============ */}
             <div className="space-y-6">
@@ -1005,7 +1005,7 @@ export default function StaffDashboardPage() {
                 <Card className="hover:shadow-lg transition-shadow">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Target className="h-5 w-5 text-blue-600" />
+                            {/* <Target className="h-5 w-5 text-blue-600" /> */}
                             Active Assignments
                         </CardTitle>
                         <CardDescription>Your current responsibility assignments</CardDescription>

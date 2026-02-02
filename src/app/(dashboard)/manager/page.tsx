@@ -545,7 +545,7 @@ export default function ManagerDashboardPage() {
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
-                            <div className="flex gap-2 p-3 border-b">
+                            <div className="flex gap-2 p-2 border-b">
                                 <Button size="sm" variant="outline" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
                                     7 days
                                 </Button>
@@ -1170,7 +1170,7 @@ export default function ManagerDashboardPage() {
             </Card> */}
 
             {/* Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="cursor-pointer hover:shadow-md transition-shadow">
                     <Link href="/manager/submissions">
                         <CardHeader>
@@ -1226,7 +1226,7 @@ export default function ManagerDashboardPage() {
                         </CardHeader>
                     </Link>
                 </Card>
-            </div>
+            </div> */}
         </div>
     )
 }

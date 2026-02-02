@@ -1,58 +1,50 @@
-import Image from "next/image";
-import Link from "next/link";
+import Image from "next/image"
+import Link from "next/link"
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-foreground p-6">
-      {/* Logo */}
-      <div className="flex flex-col items-center gap-4">
+    <div className="min-h-screen relative flex items-center justify-center bg-[#f7f7f7] overflow-hidden">
+      
+      {/* Background Illustration */}
+      <Image
+        src="/subtle-prism.svg" // illustration-style background (line art)
+        alt="Amrita Background"
+        fill
+        priority
+        className="object-cover opacity-90"
+      />
+
+      {/* Center Content */}
+      <div className="relative z-10 flex flex-col items-center text-center px-6">
+        
+        {/* Logo */}
         <Image
           src="/logo.png"
-          alt="CIR Logo"
-          width={120}
-          height={120}
+          alt="Amrita Logo"
+          width={220}
+          height={60}
           priority
         />
-        <h1 className="text-3xl font-bold tracking-tight">
-          CIR Work Management System
-        </h1>
-        <p className="text-sm text-muted-foreground text-center max-w-md">
-          Comprehensive Work & Responsibility Management - Track assignments, 
-          submit work, and verify completions efficiently.
+
+        {/* Tagline */}
+        <p className="mt-4 text-sm tracking-wide text-gray-700 uppercase">
+          Your window to employee management services
         </p>
-      </div>
 
-      {/* Features */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
-        <div className="p-4 rounded-lg bg-white dark:bg-slate-800 shadow-sm border">
-          <h3 className="font-semibold mb-1">📋 Assign Work</h3>
-          <p className="text-xs text-muted-foreground">
-            Managers assign responsibilities to staff members
-          </p>
-        </div>
-        <div className="p-4 rounded-lg bg-white dark:bg-slate-800 shadow-sm border">
-          <h3 className="font-semibold mb-1"> Submit Work</h3>
-          <p className="text-xs text-muted-foreground">
-            Staff submit their completed work for review
-          </p>
-        </div>
-        <div className="p-4 rounded-lg bg-white dark:bg-slate-800 shadow-sm border">
-          <h3 className="font-semibold mb-1">✅ Verify</h3>
-          <p className="text-xs text-muted-foreground">
-            Managers verify and approve submissions
-          </p>
-        </div>
-      </div>
+        {/* Divider */}
+        <div className="mt-4 h-px w-20 bg-[#7A1F5C]" />
 
-      {/* Buttons */}
-      <div className="mt-8 flex gap-4">
+        {/* Login Button */}
         <Link
           href="/login"
-          className="px-6 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium shadow hover:bg-primary/90 transition-colors"
+          className="mt-8 inline-flex items-center gap-3 rounded-full border border-[#7A1F5C] px-8 py-3 text-[#7A1F5C] font-medium hover:bg-[#7A1F5C] hover:text-white transition-colors"
         >
-          Sign In to Continue
+          LOGIN
+          {/* <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#C9972B] text-white">
+            →
+          </span> */}
         </Link>
       </div>
     </div>
-  );
+  )
 }

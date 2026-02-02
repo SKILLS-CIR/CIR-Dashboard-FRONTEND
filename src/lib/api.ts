@@ -254,10 +254,13 @@ export const responsibilitiesApi = {
             body: JSON.stringify(data),
         }),
 
-    getAll: (options?: { includeExpired?: boolean }): Promise<Responsibility[]> => {
+    getAll: (options?: { includeExpired?: boolean; includeRelations?: boolean }): Promise<Responsibility[]> => {
         const params = new URLSearchParams()
         if (options?.includeExpired) {
             params.append('includeExpired', 'true')
+        }
+        if (options?.includeRelations) {
+            params.append('includeRelations', 'true')
         }
         const queryString = params.toString()
         return fetchApi(`/responsibilities${queryString ? `?${queryString}` : ''}`)

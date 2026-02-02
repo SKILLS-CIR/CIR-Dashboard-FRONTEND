@@ -247,13 +247,13 @@ export default function StaffWorkSubmissionsPage() {
 
             {/* Rejected Alert */}
             {stats.rejected > 0 && (
-                <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+                <Card className=" ">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                            <AlertTriangle className="h-5 w-5" />
+                        <CardTitle className="flex items-center gap-2">
+                            {/* <AlertTriangle className="h-5 w-5" /> */}
                             {stats.rejected} Rejected Submission{stats.rejected > 1 ? 's' : ''} Need Attention
                         </CardTitle>
-                        <CardDescription className="text-red-600 dark:text-red-400">
+                        <CardDescription className="">
                             Please review rejected items and contact your manager for queries.
                         </CardDescription>
                     </CardHeader>
