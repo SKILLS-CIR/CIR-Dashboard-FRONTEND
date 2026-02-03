@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import { api } from "@/lib/api"
-import { Assignment, WorkSubmission, DayStatus } from "@/types/cir"
+import { Assignment, WorkSubmission, DayStatus, Responsibility } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +30,7 @@ import {
     XCircle,
     Target,
     Activity,
+    Download,
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
@@ -43,9 +44,41 @@ import {
 } from "@/lib/responsibility-status"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler } from 'chart.js'
 import { Pie, Bar, Line, Doughnut } from 'react-chartjs-2'
+import { StaffExportDialog } from "@/components/export-dialog"
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler)
+
+// CSV Export utility function
+const exportToCSV = (data: Record<string, any>[], filename: string) => {
+    if (data.length === 0) {
+        alert('No data to export')
+        return
+    }
+    const headers = Object.keys(data[0])
+    const csvContent = [
+        headers.join(','),
+        ...data.map(row => 
+            headers.map(header => {
+                const value = row[header]
+                if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                    return `"${value.replace(/"/g, '""')}"`
+                }
+                return value ?? ''
+            }).join(',')
+        )
+    ].join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}-${format(new Date(), 'yyyy-MM-dd')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+}
 
 interface DailyMetrics {
     todayStatus: DayStatus
@@ -70,6 +103,8 @@ export default function StaffDashboardPage() {
     const [assignments, setAssignments] = useState<Assignment[]>([])
     const [todaySubmissions, setTodaySubmissions] = useState<WorkSubmission[]>([])
     const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
+    const [staffCreatedAt, setStaffCreatedAt] = useState<string | null>(null)
+    const [employeeName, setEmployeeName] = useState<string | null>(null)
 
     // Analytics date range
     const [dateRange, setDateRange] = useState<DateRange>({
@@ -87,13 +122,23 @@ export default function StaffDashboardPage() {
     async function fetchDashboardData() {
         setIsLoading(true)
         try {
-            const [assignmentsData, submissionsData] = await Promise.all([
+            // Fetch employee details to get createdAt (joined date)
+            const employeePromise = user?.id ? api.employees.getById(String(user.id)) : Promise.resolve(null)
+            
+            const [assignmentsData, submissionsData, employeeData] = await Promise.all([
                 api.assignments.getAll(),
                 api.workSubmissions.getAll(),
+                employeePromise,
             ])
 
             setAssignments(assignmentsData)
             setAllSubmissions(submissionsData)
+            if (employeeData?.createdAt) {
+                setStaffCreatedAt(employeeData.createdAt)
+            }
+            if (employeeData?.name) {
+                setEmployeeName(employeeData.name)
+            }
             // Set today's submissions using shared utility
             const todayData = getSubmissionsForDate(submissionsData, new Date())
             setTodaySubmissions(todayData)
@@ -162,17 +207,34 @@ export default function StaffDashboardPage() {
                 verifiedDaysCount++
             }
         })
+        
 
-        // Calculate missed days (working days without submission in the past 30 days)
+        // Calculate missed days (days without submission from staff joined date to today)
         let missedDaysCount = 0
-        const thirtyDaysAgo = new Date(today)
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        
+        // Get staff joined date - fallback to 30 days ago if not available
+        let startDate: Date
+        if (staffCreatedAt && staffCreatedAt !== '') {
+            startDate = new Date(staffCreatedAt)
+        } else {
+            // Fallback: use 30 days ago if createdAt is not available
+            startDate = new Date(today)
+            startDate.setDate(startDate.getDate() - 30)
+        }
+        startDate.setHours(0, 0, 0, 0)
 
-        for (let d = new Date(thirtyDaysAgo); d < today; d.setDate(d.getDate() + 1)) {
-            const dateStr = format(d, 'yyyy-MM-dd')
+        // Create a copy of today for comparison to avoid mutation issues
+        const todayStart = new Date(today)
+        todayStart.setHours(0, 0, 0, 0)
+
+        // Loop through each day from start date to yesterday (not including today)
+        const currentDate = new Date(startDate)
+        while (currentDate < todayStart) {
+            const dateStr = format(currentDate, 'yyyy-MM-dd')
             if (!submissionDates.has(dateStr)) {
                 missedDaysCount++
             }
+            currentDate.setDate(currentDate.getDate() + 1)
         }
 
         // Count rejected submissions (for today only)
@@ -189,7 +251,7 @@ export default function StaffDashboardPage() {
             totalSubmittedDays: submissionDates.size,
             totalRejectedCount: todayRejectedCount,
         }
-    }, [allSubmissions, today])
+    }, [allSubmissions, today, staffCreatedAt])
 
     // Get today's assignments with their date-specific submission status
     const todayAssignments = useMemo(() => {
@@ -536,16 +598,24 @@ export default function StaffDashboardPage() {
         <div className="p-6 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
+                   <div>
+                    <h1 className="text-2xl font-bold tracking-tight"> Welcome back{employeeName ? `, ${employeeName}` : ''} 👋</h1>
                     <p className="text-muted-foreground">
-                        Welcome back, {user?.name || 'Staff'}. Here's your work overview.
+                        Here's a summary of your work activity and metrics.
                     </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchDashboardData}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh
-                </Button>
+                <div className="flex gap-2">
+                    <StaffExportDialog
+                        submissions={allSubmissions}
+                        responsibilities={assignments.map(a => a.responsibility).filter((r): r is Responsibility => r !== undefined)}
+                        assignments={assignments}
+                        userName={employeeName || user?.name || 'Staff'}
+                    />
+                    <Button variant="outline" size="sm" onClick={fetchDashboardData}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh
+                    </Button>
+                </div>
             </div>
 
             {/* Daily Metrics */}
@@ -573,7 +643,7 @@ export default function StaffDashboardPage() {
                         </div>
                         <Button asChild size="lg">
                             <Link href="/staff/work-calendar">
-                                Go to Work Calendar
+                                Submit Work
                                 <ArrowRight className="h-4 w-4 ml-2" />
                             </Link>
                         </Button>
@@ -798,6 +868,19 @@ export default function StaffDashboardPage() {
                             </p>
                         </CardContent>
                     </Card>
+                    
+                    <Card className="hover:shadow-lg transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+                            <FileCheck className="h-4 w-4 text-purple-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-purple-600">{analyticsStats.totalHours.toFixed(1)}h</div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                total work hours
+                            </p>
+                        </CardContent>
+                    </Card>
 
                     <Card className="hover:shadow-lg transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -826,11 +909,18 @@ export default function StaffDashboardPage() {
                             {/* Status Distribution Pie */}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Activity className="h-5 w-5 text-blue-600" />
-                                        Status Distribution
-                                    </CardTitle>
-                                    <CardDescription>Breakdown by submission status</CardDescription>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Activity className="h-5 w-5 text-blue-600" />
+                                                Status Distribution
+                                            </CardTitle>
+                                            <CardDescription>Breakdown by submission status</CardDescription>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={() => exportToCSV([{ Status: 'Verified', Count: analyticsStats.verified }, { Status: 'Pending', Count: analyticsStats.pending }, { Status: 'Rejected', Count: analyticsStats.rejected }], 'status_distribution')}>
+                                            <Download className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="flex justify-center">
                                     <div className="w-full max-w-[280px]">
@@ -848,11 +938,18 @@ export default function StaffDashboardPage() {
                             {/* Daily Submissions Line Chart */}
                             <Card className="lg:col-span-2">
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <TrendingUp className="h-5 w-5 text-indigo-600" />
-                                        Daily Submissions
-                                    </CardTitle>
-                                    <CardDescription>Number of submissions per day</CardDescription>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <TrendingUp className="h-5 w-5 text-indigo-600" />
+                                                Daily Submissions
+                                            </CardTitle>
+                                            <CardDescription>Number of submissions per day</CardDescription>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Submissions: d.submissions, Hours: d.hours })), 'daily_submissions')}>
+                                            <Download className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     <Line data={dailySubmissionsData} options={lineChartOptions} />
@@ -863,11 +960,18 @@ export default function StaffDashboardPage() {
                         {/* Weekly Comparison */}
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-purple-600" />
-                                    Weekly Comparison
-                                </CardTitle>
-                                <CardDescription>Submissions and hours by week</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-purple-600" />
+                                            Weekly Comparison
+                                        </CardTitle>
+                                        <CardDescription>Submissions and hours by week</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(weeklyData.map(w => ({ Week: w.week, Submissions: w.submissions, Hours: w.hours })), 'weekly_comparison')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <Bar data={weeklyBarData} options={barChartOptions} />
@@ -878,11 +982,18 @@ export default function StaffDashboardPage() {
                     <TabsContent value="hours" className="space-y-4">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-green-600" />
-                                    Hours Logged Over Time
-                                </CardTitle>
-                                <CardDescription>Daily hours worked trend</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Clock className="h-5 w-5 text-green-600" />
+                                            Hours Logged Over Time
+                                        </CardTitle>
+                                        <CardDescription>Daily hours worked trend</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Hours: d.hours })), 'hours_trend')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[400px]">
@@ -941,11 +1052,18 @@ export default function StaffDashboardPage() {
                     <TabsContent value="status" className="space-y-4">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-indigo-600" />
-                                    Daily Status Breakdown
-                                </CardTitle>
-                                <CardDescription>Verified, pending, and rejected by day</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-indigo-600" />
+                                            Daily Status Breakdown
+                                        </CardTitle>
+                                        <CardDescription>Verified, pending, and rejected by day</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Verified: d.verified, Pending: d.pending, Rejected: d.rejected })), 'daily_status_breakdown')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[400px]">
@@ -954,7 +1072,7 @@ export default function StaffDashboardPage() {
                             </CardContent>
                         </Card>
 
-                        <div className="grid gap-4 md:grid-cols-3">
+                        {/* <div className="grid gap-4 md:grid-cols-3">
                             <Card className="border-green-500/50 hover:shadow-lg transition-shadow">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -997,7 +1115,7 @@ export default function StaffDashboardPage() {
                                     </p>
                                 </CardContent>
                             </Card>
-                        </div>
+                        </div> */}
                     </TabsContent>
                 </Tabs>
 

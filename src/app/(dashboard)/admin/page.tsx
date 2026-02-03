@@ -53,14 +53,47 @@ import {
   Plus,
   Layers,
   CalendarIcon,
-  BarChart3
+  BarChart3,
+  Download,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler } from 'chart.js'
 import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2'
+import { AdminExportDialog } from "@/components/export-dialog"
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler)
+
+// CSV Export utility function
+const exportToCSV = (data: Record<string, any>[], filename: string) => {
+    if (data.length === 0) {
+        alert('No data to export')
+        return
+    }
+    const headers = Object.keys(data[0])
+    const csvContent = [
+        headers.join(','),
+        ...data.map(row => 
+            headers.map(header => {
+                const value = row[header]
+                if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                    return `"${value.replace(/"/g, '""')}"`
+                }
+                return value ?? ''
+            }).join(',')
+        )
+    ].join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}-${format(new Date(), 'yyyy-MM-dd')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+}
 
 type DateRange = {
     from: Date
@@ -89,7 +122,8 @@ export default function AdminDashboardPage() {
   //   rejectedSubmissions: 0,
   // })
   const [isLoading, setIsLoading] = useState(true)
-     const [submissions, setSubmissions] = useState<WorkSubmission[]>([])
+  const [employeeName, setEmployeeName] = useState<string | null>(null)
+  const [submissions, setSubmissions] = useState<WorkSubmission[]>([])
     const [assignments, setAssignments] = useState<Assignment[]>([])
     const [employees, setEmployees] = useState<Employee[]>([])
     const [responsibilities, setResponsibilities] = useState<Responsibility[]>([])
@@ -126,6 +160,14 @@ export default function AdminDashboardPage() {
             setResponsibilities(allResponsibilities)
             setDepartments(allDepts)
             setSubDepartments(allSubDepts)
+
+            // Get admin's name from employee data
+            if (user?.id) {
+                const adminData = allEmployees.find(e => String(e.id) === String(user.id))
+                if (adminData?.name) {
+                    setEmployeeName(adminData.name)
+                }
+            }
         } catch (error) {
             console.error("Failed to fetch analytics data:", error)
         } finally {
@@ -657,10 +699,17 @@ export default function AdminDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back, {user?.name || 'Admin'}. Here's an overview of the system.
+            Welcome back{employeeName ? `, ${employeeName}` : ''}. Here's an overview of the system.
           </p>
         </div>
-       
+        <AdminExportDialog
+            submissions={submissions}
+            employees={employees}
+            departments={departments}
+            subDepartments={subDepartments}
+            responsibilities={responsibilities}
+            assignments={assignments}
+        />
       </div>
 
       
@@ -859,11 +908,18 @@ export default function AdminDashboardPage() {
                     {/* Multi-Series Area Chart - Full Width */}
                     <Card className="rounded-none">
                         <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                                <Activity className="h-4 w-4 text-indigo-500" />
-                                Submissions Trend
-                            </CardTitle>
-                            <CardDescription className="text-xs">Multi-series view of all submission statuses over time</CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <Activity className="h-4 w-4 text-indigo-500" />
+                                        Submissions Trend
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">Multi-series view of all submission statuses over time</CardDescription>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Submissions: d.submissions, Verified: d.verified, Hours: d.hours })), 'submissions_trend')}>
+                                    <Download className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="h-[280px]">
@@ -875,11 +931,18 @@ export default function AdminDashboardPage() {
                     <div className="grid gap-4 lg:grid-cols-3">
                         <Card className="rounded-none">
                             <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-base">
-                                    <Target className="h-4 w-4 text-green-500" />
-                                    Status Distribution
-                                </CardTitle>
-                                <CardDescription className="text-xs">Breakdown by status</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Target className="h-4 w-4 text-green-500" />
+                                            Status Distribution
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">Breakdown by status</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV([{ Status: 'Verified', Count: stats.verified }, { Status: 'Pending', Count: stats.pending }, { Status: 'Rejected', Count: stats.rejected }], 'status_distribution')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[240px]">
@@ -895,11 +958,18 @@ export default function AdminDashboardPage() {
                         </Card>
                         <Card className="rounded-none">
                             <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-base">
-                                    <Building2 className="h-4 w-4 text-blue-500" />
-                                    By Department
-                                </CardTitle>
-                                <CardDescription className="text-xs">Submissions breakdown</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Building2 className="h-4 w-4 text-blue-500" />
+                                            By Department
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">Submissions breakdown</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(departmentStats.map(d => ({ Department: d.name, TotalSubmissions: d.totalSubmissions, Verified: d.verified, Hours: d.hours, ApprovalRate: d.approvalRate, StaffCount: d.staffCount })), 'department_stats')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[240px]">
@@ -909,11 +979,18 @@ export default function AdminDashboardPage() {
                         </Card>
                         <Card className="rounded-none">
                             <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-base">
-                                    <BarChart3 className="h-4 w-4 text-indigo-500" />
-                                    Daily Staff Hours
-                                </CardTitle>
-                                <CardDescription className="text-xs">Hours worked per day</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <BarChart3 className="h-4 w-4 text-indigo-500" />
+                                            Daily Staff Hours
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">Hours worked per day</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Hours: d.hours })), 'daily_hours')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[240px]">

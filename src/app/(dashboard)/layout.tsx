@@ -53,25 +53,25 @@ const navigation: NavigationItem[] = [
     roles: ["ADMIN"]
   },
   {
-    name: "Users",
+    name: "Manage Users",
     href: "/admin/users",
     icon: <Users className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
   {
-    name: "Departments",
+    name: "Manage Departments",
     href: "/admin/departments",
     icon: <Building2 className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
   {
-    name: "Responsibilities",
+    name: "ManageResponsibilities",
     href: "/admin/responsibilities",
     icon: <Briefcase className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
   {
-    name: "Work Submissions",
+    name: "Manage Work Submissions",
     href: "/admin/work-submissions",
     icon: <FileCheck className="w-5 h-5" />,
     roles: ["ADMIN"]
@@ -140,12 +140,12 @@ const navigation: NavigationItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     roles: ["STAFF"]
   },
-  {
-    name: "Submit Work",
-    href: "/staff/work-calendar",
-    icon: <Save className="w-5 h-5" />,
-    roles: ["STAFF"]
-  },
+  // {
+  //   name: "Submit Work",
+  //   href: "/staff/work-calendar",
+  //   icon: <Save className="w-5 h-5" />,
+  //   roles: ["STAFF"]
+  // },
   {
     name: "Work Calendar",
     href: "/staff/responsibilities",

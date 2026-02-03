@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined)
   const [gender, setGender] = useState<"male" | "female">("male")
+  const [profileName, setProfileName] = useState<string | null>(null)
 
   // Fetch profile data on mount
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function ProfilePage() {
         const data = await api.profile.get()
         setAvatarUrl(data.admin?.avatarUrl || data.avatarUrl)
         setGender(data.admin?.gender || data.gender || "male")
+        setProfileName(data.admin?.name || data.name || null)
       } catch (error) {
         console.error("Failed to fetch profile:", error)
       }
@@ -109,10 +111,10 @@ export default function ProfilePage() {
               currentAvatar={avatarUrl}
               gender={gender}
               onSave={handleAvatarSave}
-              fallbackInitials={getInitials(user?.name)}
+              fallbackInitials={getInitials(profileName || user?.name)}
             />
             <div className="text-center sm:text-left">
-              <h3 className="text-lg sm:text-xl font-semibold">{user?.name || 'User'}</h3>
+              <h3 className="text-lg sm:text-xl font-semibold">{profileName || user?.name || 'User'}</h3>
               {role && <RoleBadge role={role} className="mt-1" />}
             </div>
           </div>

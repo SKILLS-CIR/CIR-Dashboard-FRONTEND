@@ -35,13 +35,47 @@ import {
     Calendar as CalendarIcon,
     Award,
     AlertCircle,
+    Download,
 } from "lucide-react"
 import { getSubmissionsForDate, getToday } from "@/lib/responsibility-status"
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler } from 'chart.js'
 import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2'
+import { ManagerExportDialog } from "@/components/export-dialog"
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler)
+
+// CSV Export utility function
+const exportToCSV = (data: Record<string, any>[], filename: string) => {
+    if (data.length === 0) {
+        alert('No data to export')
+        return
+    }
+    const headers = Object.keys(data[0])
+    const csvContent = [
+        headers.join(','),
+        ...data.map(row => 
+            headers.map(header => {
+                const value = row[header]
+                // Handle values that contain commas or quotes
+                if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                    return `"${value.replace(/"/g, '""')}"`
+                }
+                return value ?? ''
+            }).join(',')
+        )
+    ].join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}-${format(new Date(), 'yyyy-MM-dd')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+}
 
 type DateRange = {
     from: Date
@@ -58,6 +92,7 @@ export default function ManagerDashboardPage() {
     const [staffList, setStaffList] = useState<Employee[]>([])
     const [responsibilities, setResponsibilities] = useState<Responsibility[]>([])
     const [subDepartment, setSubDepartment] = useState<SubDepartment | null>(null)
+    const [employeeName, setEmployeeName] = useState<string | null>(null)
     const [selectedStaffId, setSelectedStaffId] = useState<string>("all")
     const [selectedResponsibilityId, setSelectedResponsibilityId] = useState<string>("all")
     const [dateRange, setDateRange] = useState<DateRange>({
@@ -85,6 +120,12 @@ export default function ManagerDashboardPage() {
                 // Get manager's sub-department
                 const managerSubDept = allSubDepts.find(sd => String(sd.id) === String(user.subDepartmentId))
                 setSubDepartment(managerSubDept || null)
+
+                // Get manager's name from employee data
+                const managerData = allEmployees.find(e => String(e.id) === String(user.id))
+                if (managerData?.name) {
+                    setEmployeeName(managerData.name)
+                }
 
                 // Filter staff in manager's sub-department
                 const deptStaff = allEmployees.filter(e =>
@@ -227,7 +268,11 @@ export default function ManagerDashboardPage() {
     const responsibilityStats = useMemo(() => {
         return responsibilities.map(resp => {
             const respAssignments = assignments.filter(a => String(a.responsibilityId) === String(resp.id))
-            const assignedStaff = new Set(respAssignments.map(a => String(a.staffId))).size
+            const assignedStaffIds = [...new Set(respAssignments.map(a => String(a.staffId)))]
+            const assignedStaffNames = assignedStaffIds
+                .map(id => staffList.find(s => String(s.id) === id)?.name)
+                .filter(Boolean)
+                .join(', ')
             const respSubmissions = filteredSubmissions.filter(s =>
                 respAssignments.some(a => String(a.id) === String(s.assignmentId))
             )
@@ -237,7 +282,8 @@ export default function ManagerDashboardPage() {
 
             return {
                 ...resp,
-                assignedStaff,
+                assignedStaff: assignedStaffIds.length,
+                assignedStaffNames,
                 totalSubmissions: respSubmissions.length,
                 verified,
                 pending,
@@ -245,7 +291,7 @@ export default function ManagerDashboardPage() {
                 completionRate: respSubmissions.length > 0 ? Math.round((verified / respSubmissions.length) * 100) : 0,
             }
         }).sort((a, b) => b.totalSubmissions - a.totalSubmissions)
-    }, [responsibilities, assignments, filteredSubmissions])
+    }, [responsibilities, assignments, filteredSubmissions, staffList])
 
     // Chart Data
     const statusPieData = {
@@ -388,7 +434,7 @@ export default function ManagerDashboardPage() {
     }
 
     const responsibilityStatusData = {
-        labels: responsibilityStats.slice(0, 8).map(r => r.title.length > 12 ? r.title.substring(0, 12) + '...' : r.title),
+        labels: responsibilityStats.slice(0, 8).map(r => r.title.length > 25 ? r.title.substring(0, 22) + '...' : r.title),
         datasets: [{
             label: 'Verified',
             data: responsibilityStats.slice(0, 8).map(r => r.verified),
@@ -408,7 +454,7 @@ export default function ManagerDashboardPage() {
     }
 
     const responsibilityCompletionData = {
-        labels: responsibilityStats.map(r => r.title.length > 12 ? r.title.substring(0, 12) + '...' : r.title),
+        labels: responsibilityStats.map(r => r.title.length > 25 ? r.title.substring(0, 22) + '...' : r.title),
         datasets: [{
             label: 'Completion Rate (%)',
             data: responsibilityStats.map(r => r.completionRate),
@@ -425,6 +471,9 @@ export default function ManagerDashboardPage() {
             ),
         }]
     }
+
+    // Store full titles for tooltip
+    const responsibilityFullTitles = responsibilityStats.map(r => r.title)
 
     // Chart Options
     const pieChartOptions = {
@@ -487,6 +536,32 @@ export default function ManagerDashboardPage() {
         },
     }
 
+    // Custom options for completion rate chart with full title in tooltip
+    const completionRateChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top' as const, labels: { padding: 15, usePointStyle: true } },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                mode: 'index' as const,
+                intersect: false,
+                callbacks: {
+                    title: function(context: any) {
+                        const index = context[0]?.dataIndex
+                        return responsibilityFullTitles[index] || context[0]?.label
+                    }
+                }
+            },
+        },
+        scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+        },
+        interaction: { mode: 'nearest' as const, axis: 'x' as const, intersect: false },
+    }
+
     if (isLoading) {
         return (
             <div className="p-6 space-y-6">
@@ -504,11 +579,18 @@ export default function ManagerDashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight"> Welcome back, {user?.role || 'Manager'}👋</h1>
+                    <h1 className="text-2xl font-bold tracking-tight"> Welcome back{employeeName ? `, ${employeeName}` : ''} 👋</h1>
                     <p className="text-muted-foreground">
                         Manage your team's work here.
                     </p>
                 </div>
+                <ManagerExportDialog
+                    submissions={submissions}
+                    staffList={staffList}
+                    responsibilities={responsibilities}
+                    assignments={assignments}
+                    subDepartmentName={subDepartment?.name || 'Sub-Department'}
+                />
             </div>
 
             {/* Analytics Header with Filters */}
@@ -645,11 +727,18 @@ export default function ManagerDashboardPage() {
                     <div className="grid gap-4 lg:grid-cols-2">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-indigo-500" />
-                                    Daily Submissions
-                                </CardTitle>
-                                <CardDescription>Submissions trend over time</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Activity className="h-5 w-5 text-indigo-500" />
+                                            Daily Submissions
+                                        </CardTitle>
+                                        <CardDescription>Submissions trend over time</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Submissions: d.submissions, Verified: d.verified, Pending: d.pending, Rejected: d.rejected, Hours: d.hours })), 'daily_submissions')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -659,11 +748,18 @@ export default function ManagerDashboardPage() {
                         </Card>
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Target className="h-5 w-5 text-green-500" />
-                                    Status Distribution
-                                </CardTitle>
-                                <CardDescription>Breakdown by submission status</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Target className="h-5 w-5 text-green-500" />
+                                            Status Distribution
+                                        </CardTitle>
+                                        <CardDescription>Breakdown by submission status</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV([{ Status: 'Verified', Count: analyticsStats.verified }, { Status: 'Pending', Count: analyticsStats.pending }, { Status: 'Rejected', Count: analyticsStats.rejected }], 'status_distribution')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -680,11 +776,18 @@ export default function ManagerDashboardPage() {
                     </div>
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Clock className="h-5 w-5 text-purple-500" />
-                                Hours Trend
-                            </CardTitle>
-                            <CardDescription>Daily hours worked</CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Clock className="h-5 w-5 text-purple-500" />
+                                        Hours Trend
+                                    </CardTitle>
+                                    <CardDescription>Daily hours worked</CardDescription>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Hours: d.hours })), 'hours_trend')}>
+                                    <Download className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="h-[250px]">
@@ -754,11 +857,18 @@ export default function ManagerDashboardPage() {
                     <div className="grid gap-4 lg:grid-cols-2">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-blue-500" />
-                                    Submission Distribution
-                                </CardTitle>
-                                <CardDescription>Top performers by submission count</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-blue-500" />
+                                            Submission Distribution
+                                        </CardTitle>
+                                        <CardDescription>Top performers by submission count</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(staffStats.map(s => ({ Name: s.name, Total: s.total, Verified: s.verified, Pending: s.pending, Rejected: s.rejected, Hours: s.hours, ApprovalRate: s.approvalRate })), 'staff_submissions')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -775,11 +885,18 @@ export default function ManagerDashboardPage() {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-indigo-500" />
-                                    Status Breakdown
-                                </CardTitle>
-                                <CardDescription>Verified, pending, and rejected by staff</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Activity className="h-5 w-5 text-indigo-500" />
+                                            Status Breakdown
+                                        </CardTitle>
+                                        <CardDescription>Verified, pending, and rejected by staff</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(staffStats.map(s => ({ Name: s.name, Verified: s.verified, Pending: s.pending, Rejected: s.rejected })), 'staff_status_breakdown')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -790,11 +907,18 @@ export default function ManagerDashboardPage() {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-purple-500" />
-                                    Hours Worked
-                                </CardTitle>
-                                <CardDescription>Verified hours by staff member</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Clock className="h-5 w-5 text-purple-500" />
+                                            Hours Worked
+                                        </CardTitle>
+                                        <CardDescription>Verified hours by staff member</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(staffStats.map(s => ({ Name: s.name, Hours: s.hours })), 'staff_hours')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -805,11 +929,18 @@ export default function ManagerDashboardPage() {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-green-500" />
-                                    Approval Rates
-                                </CardTitle>
-                                <CardDescription>Approval rate trend across staff</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <TrendingUp className="h-5 w-5 text-green-500" />
+                                            Approval Rates
+                                        </CardTitle>
+                                        <CardDescription>Approval rate trend across staff</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(staffStats.map(s => ({ Name: s.name, ApprovalRate: s.approvalRate })), 'staff_approval_rates')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -822,8 +953,16 @@ export default function ManagerDashboardPage() {
                     {/* Staff Details Table */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Staff Details</CardTitle>
-                            <CardDescription>Individual performance metrics</CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle>Staff Details</CardTitle>
+                                    <CardDescription>Individual performance metrics</CardDescription>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => exportToCSV(staffStats.map(s => ({ Name: s.name, Email: s.email, TotalSubmissions: s.total, Verified: s.verified, Pending: s.pending, Rejected: s.rejected, Hours: s.hours, ApprovalRate: s.approvalRate })), 'staff_details')}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export All
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-[400px]">
@@ -979,11 +1118,18 @@ export default function ManagerDashboardPage() {
                     <div className="grid gap-4 lg:grid-cols-2">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-blue-500" />
-                                    Activity Distribution
-                                </CardTitle>
-                                <CardDescription>Submissions by responsibility</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-blue-500" />
+                                            Activity Distribution
+                                        </CardTitle>
+                                        <CardDescription>Submissions by responsibility</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(responsibilityStats.map(r => ({ Title: r.title, TotalSubmissions: r.totalSubmissions, Verified: r.verified, Pending: r.pending, Rejected: r.rejected, CompletionRate: r.completionRate })), 'responsibility_distribution')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -1000,11 +1146,18 @@ export default function ManagerDashboardPage() {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-indigo-500" />
-                                    Status Breakdown
-                                </CardTitle>
-                                <CardDescription>Verified, pending, rejected by task</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Activity className="h-5 w-5 text-indigo-500" />
+                                            Status Breakdown
+                                        </CardTitle>
+                                        <CardDescription>Verified, pending, rejected by task</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(responsibilityStats.map(r => ({ Title: r.title, Verified: r.verified, Pending: r.pending, Rejected: r.rejected })), 'responsibility_status_breakdown')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
@@ -1015,15 +1168,22 @@ export default function ManagerDashboardPage() {
 
                         <Card className="lg:col-span-2">
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    {/* <Target className="h-5 w-5 text-green-500" /> */}
-                                    Completion Rates
-                                </CardTitle>
-                                <CardDescription>Success rate trend across responsibilities</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            {/* <Target className="h-5 w-5 text-green-500" /> */}
+                                            Completion Rates
+                                        </CardTitle>
+                                        <CardDescription>Success rate trend across responsibilities</CardDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => exportToCSV(responsibilityStats.map(r => ({ Title: r.title, CompletionRate: r.completionRate })), 'completion_rates')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
-                                    <Line data={responsibilityCompletionData} options={lineChartOptions} />
+                                    <Line data={responsibilityCompletionData} options={completionRateChartOptions} />
                                 </div>
                             </CardContent>
                         </Card>
@@ -1032,11 +1192,19 @@ export default function ManagerDashboardPage() {
                     {/* Responsibilities Details */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Briefcase className="h-5 w-5 text-indigo-500" />
-                                Responsibilities Overview
-                            </CardTitle>
-                            <CardDescription>Performance by responsibility</CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Briefcase className="h-5 w-5 text-indigo-500" />
+                                        Responsibilities Overview
+                                    </CardTitle>
+                                    <CardDescription>Performance by responsibility</CardDescription>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => exportToCSV(responsibilityStats.map(r => ({ Title: r.title, Description: r.description || '', AssignedStaffCount: r.assignedStaff, AssignedStaffNames: r.assignedStaffNames, TotalSubmissions: r.totalSubmissions, Verified: r.verified, Pending: r.pending, Rejected: r.rejected, CompletionRate: r.completionRate, IsActive: r.isActive ? 'Yes' : 'No' })), 'responsibilities_overview')}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export All
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-[500px]">

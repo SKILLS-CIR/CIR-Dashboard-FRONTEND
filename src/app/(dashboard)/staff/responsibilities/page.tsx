@@ -63,6 +63,7 @@ export default function StaffResponsibilitiesPage() {
     const [assignments, setAssignments] = useState<Assignment[]>([])
     const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [staffCreatedAt, setStaffCreatedAt] = useState<Date | null>(null)
 
     // Separate month states for each calendar
     const [submissionsMonth, setSubmissionsMonth] = useState(new Date())
@@ -86,14 +87,21 @@ export default function StaffResponsibilitiesPage() {
     async function fetchData() {
         setIsLoading(true)
         try {
-            const [respData, assignmentsData, submissionsData] = await Promise.all([
+            // Fetch employee details to get createdAt (joined date)
+            const employeePromise = user?.id ? api.employees.getById(String(user.id)) : Promise.resolve(null)
+            
+            const [respData, assignmentsData, submissionsData, employeeData] = await Promise.all([
                 api.responsibilities.getAll(),
                 api.assignments.getAll(),
                 api.workSubmissions.getAll(),
+                employeePromise,
             ])
             setResponsibilities(respData)
             setAssignments(assignmentsData)
             setAllSubmissions(submissionsData)
+            if (employeeData?.createdAt) {
+                setStaffCreatedAt(new Date(employeeData.createdAt))
+            }
         } catch (error) {
             console.error("Failed to fetch data:", error)
         } finally {
@@ -176,9 +184,11 @@ export default function StaffResponsibilitiesPage() {
             const hasRejected = daySubmissions.some(s => s.status === 'REJECTED')
             const hasPending = daySubmissions.some(s => s.status === 'PENDING')
 
-            // A day is "missed" if it's in the past and has no submissions
+            // A day is "missed" if it's in the past, after staff joined, and has no submissions
             const isPastDay = isBefore(date, today) && !isSameDay(date, today)
-            const isMissed = isPastDay && daySubmissions.length === 0
+            // Only count as missed if the day is on or after the staff's join date
+            const isAfterJoinDate = staffCreatedAt ? (isSameDay(date, staffCreatedAt) || isBefore(staffCreatedAt, date)) : true
+            const isMissed = isPastDay && isAfterJoinDate && daySubmissions.length === 0
 
             map.set(dateStr, {
                 date,
@@ -193,7 +203,7 @@ export default function StaffResponsibilitiesPage() {
         })
 
         return map
-    }, [submissionsMonth, allSubmissions, today])
+    }, [submissionsMonth, allSubmissions, today, staffCreatedAt])
 
     // Get submission calendar days (just for submissions month)
     const submissionCalendarDays = useMemo(() => {
