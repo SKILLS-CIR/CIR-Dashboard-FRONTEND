@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/providers/auth-context"
-import { Responsibility, SubDepartment, Department, CreateResponsibilityDto, UpdateResponsibilityDto } from "@/types/cir"
+import { Responsibility, ResponsibilityGroup, SubDepartment, Department, CreateResponsibilityDto, UpdateResponsibilityDto } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,7 +45,8 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { Search, Plus, Pencil, Trash2, CalendarIcon, Building, ChevronDown, ChevronRight, Users, FolderOpen } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, Plus, Pencil, Trash2, CalendarIcon, Building, ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Users, FolderOpen, Layers, User } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -53,6 +54,7 @@ import { cn } from "@/lib/utils"
 export default function AdminResponsibilitiesPage() {
     const { user } = useAuth()
     const [responsibilities, setResponsibilities] = useState<Responsibility[]>([])
+    const [responsibilityGroups, setResponsibilityGroups] = useState<ResponsibilityGroup[]>([])
     const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([])
     const [departments, setDepartments] = useState<Department[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -71,6 +73,13 @@ export default function AdminResponsibilitiesPage() {
     // Expanded rows for viewing details
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage, setItemsPerPage] = useState(10)
+
+    // View mode: all, individual, grouped
+    const [viewMode, setViewMode] = useState<"all" | "individual" | "grouped">("all")
+
     // Form state - matches schema exactly
     const [title, setTitle] = useState("")
     const [description, setDescription] = useState("")
@@ -88,14 +97,26 @@ export default function AdminResponsibilitiesPage() {
 
     async function fetchData() {
         try {
-            const [responsibilitiesData, subDepartmentsData, departmentsData] = await Promise.all([
+            const fetchGroupsSafe = async () => {
+                try {
+                    return await api.responsibilityGroups.getAll()
+                } catch (error: any) {
+                    if (error?.status === 404 || error?.response?.status === 404) return []
+                    console.error("Failed to fetch responsibility groups:", error)
+                    return []
+                }
+            }
+
+            const [responsibilitiesData, subDepartmentsData, departmentsData, groupsData] = await Promise.all([
                 api.responsibilities.getAll({ includeRelations: true }),
                 api.subDepartments.getAll(),
                 api.departments.getAll(),
+                fetchGroupsSafe(),
             ])
             setResponsibilities(responsibilitiesData)
             setSubDepartments(subDepartmentsData)
             setDepartments(departmentsData)
+            setResponsibilityGroups(groupsData)
         } catch (error) {
             console.error("Failed to fetch data:", error)
         } finally {
@@ -133,6 +154,61 @@ export default function AdminResponsibilitiesPage() {
         return matchesSearch && matchesDept && matchesSubDept && matchesCycle
     })
 
+    // Build a map of responsibility ID → group names from the fetched groups
+    const responsibilityToGroupsMap = useMemo(() => {
+        const map = new Map<string, { groupId: string; groupName: string }[]>()
+        for (const group of responsibilityGroups) {
+            if (!group.items) continue
+            for (const item of group.items) {
+                const respId = String(item.responsibilityId)
+                if (!map.has(respId)) {
+                    map.set(respId, [])
+                }
+                map.get(respId)!.push({
+                    groupId: group.id,
+                    groupName: group.name,
+                })
+            }
+        }
+        return map
+    }, [responsibilityGroups])
+
+    // Apply view mode filter
+    const viewFilteredResponsibilities = filteredResponsibilities.filter(r => {
+        if (viewMode === "all") return true
+        const groups = responsibilityToGroupsMap.get(String(r.id))
+        if (viewMode === "grouped") return !!groups && groups.length > 0
+        if (viewMode === "individual") return !groups || groups.length === 0
+        return true
+    })
+
+    // Counts for tab badges
+    const individualCount = filteredResponsibilities.filter(r => {
+        const groups = responsibilityToGroupsMap.get(String(r.id))
+        return !groups || groups.length === 0
+    }).length
+    const groupedCount = filteredResponsibilities.filter(r => {
+        const groups = responsibilityToGroupsMap.get(String(r.id))
+        return !!groups && groups.length > 0
+    }).length
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [searchQuery, selectedFilterDept, selectedFilterSubDept, selectedFilterCycle, viewMode])
+
+    // Pagination calculations
+    const totalPages = Math.max(1, Math.ceil(viewFilteredResponsibilities.length / itemsPerPage))
+    const paginatedResponsibilities = viewFilteredResponsibilities.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    )
+    // Helper to get group names for a responsibility
+    function getGroupNames(resp: Responsibility): string[] {
+        const groups = responsibilityToGroupsMap.get(String(resp.id))
+        if (!groups) return []
+        return groups.map(g => g.groupName).filter(Boolean)
+    }
     async function handleCreate() {
         if (!title.trim()) {
             toast.error("Title is required")
@@ -499,25 +575,73 @@ export default function AdminResponsibilitiesPage() {
                 </Select>
             </div>
 
+            {/* View Mode Tabs */}
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "all" | "individual" | "grouped")}>
+                <TabsList>
+                    <TabsTrigger value="all" className="gap-2">
+                        <FolderOpen className="h-4 w-4" />
+                        All
+                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{filteredResponsibilities.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="individual" className="gap-2">
+                        <User className="h-4 w-4" />
+                        Individual
+                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{individualCount}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="grouped" className="gap-2">
+                        <Layers className="h-4 w-4" />
+                        Grouped
+                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{groupedCount}</Badge>
+                    </TabsTrigger>
+                </TabsList>
+            </Tabs>
+
             {/* Responsibilities List */}
             <Card>
-                <CardHeader>
-                    <CardTitle>All Responsibilities</CardTitle>
-                    <CardDescription>
-                        {filteredResponsibilities.length} responsibilit{filteredResponsibilities.length !== 1 ? 'ies' : 'y'}
-                    </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>
+                            {viewMode === "all" ? "All Responsibilities" : viewMode === "individual" ? "Individual Responsibilities" : "Grouped Responsibilities"}
+                        </CardTitle>
+                        <CardDescription>
+                            {viewFilteredResponsibilities.length} responsibilit{viewFilteredResponsibilities.length !== 1 ? 'ies' : 'y'}
+                            {viewFilteredResponsibilities.length > itemsPerPage && (
+                                <span> · Page {currentPage} of {totalPages}</span>
+                            )}
+                        </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Per page:</span>
+                        <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1) }}>
+                            <SelectTrigger className="w-[70px] h-8">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {filteredResponsibilities.length === 0 ? (
+                    {viewFilteredResponsibilities.length === 0 ? (
                         <p className="text-muted-foreground text-center py-8">
-                            No responsibilities found
+                            {viewMode === "grouped"
+                                ? "No grouped responsibilities found"
+                                : viewMode === "individual"
+                                    ? "No individual responsibilities found"
+                                    : "No responsibilities found"
+                            }
                         </p>
                     ) : (
                         <div className="space-y-4">
-                            {filteredResponsibilities.map((resp) => {
+                            {paginatedResponsibilities.map((resp) => {
                                 const isExpanded = expandedRows.has(resp.id)
-                                const groupItems = (resp as any).groupItems || []
+                                const groupNames = getGroupNames(resp)
                                 const assignments = (resp as any).assignments || []
+                                const isGrouped = groupNames.length > 0
 
                                 return (
                                     <Collapsible
@@ -525,7 +649,7 @@ export default function AdminResponsibilitiesPage() {
                                         open={isExpanded}
                                         onOpenChange={() => toggleRowExpansion(resp.id)}
                                     >
-                                        <div className="border rounded-lg">
+                                        <div className={cn("border rounded-none", isGrouped && "border-l-4 border-gray-600 dark:border-gray-600")}>
                                             <div className="flex items-center gap-3 p-4">
                                                 <CollapsibleTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -538,8 +662,35 @@ export default function AdminResponsibilitiesPage() {
                                                 </CollapsibleTrigger>
 
                                                 <div className="flex-1">
-                                                    <h3 className="font-semibold">{resp.title}</h3>
-                                                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                                    {/* <div className="flex items-center gap-2">
+                                                        <h3 className="font-semibold">{resp.title}</h3>
+                                                        {isGrouped ? (
+                                                            <Badge variant="default" className=" text-xs gap-1">
+                                                                <Layers className="h-3 w-3" />
+                                                                Grouped
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-xs gap-1">
+                                                                <User className="h-3 w-3" />
+                                                                Individual
+                                                            </Badge>
+                                                        )}
+                                                    </div> */}
+                                                    {/* Group name badges */}
+                                                  
+                                                         <h3 className="">{resp.title}</h3>
+                                                
+                                                    {groupNames.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {groupNames.map((name, idx) => (
+                                                                <Badge key={idx} variant="secondary" className="text-xs gap-1 bg-gray-700 text-white dark:bg-white dark:text-black">
+                                                                    <Layers className="h-2.5 w-2.5" />
+                                                                    {name}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-1">
                                                         <span className="flex items-center gap-1">
                                                             <Building className="h-3 w-3" />
                                                             {resp.subDepartment?.name || getSubDepartmentName(resp.subDepartmentId)}
@@ -548,15 +699,6 @@ export default function AdminResponsibilitiesPage() {
                                                             <>
                                                                 <span>•</span>
                                                                 <Badge variant="outline">{resp.cycle}</Badge>
-                                                            </>
-                                                        )}
-                                                        {groupItems.length > 0 && (
-                                                            <>
-                                                                <span>•</span>
-                                                                <span className="flex items-center gap-1">
-                                                                    <FolderOpen className="h-3 w-3" />
-                                                                    {groupItems.length} group{groupItems.length !== 1 ? 's' : ''}
-                                                                </span>
                                                             </>
                                                         )}
                                                         {assignments.length > 0 && (
@@ -628,16 +770,16 @@ export default function AdminResponsibilitiesPage() {
                                                     </div>
 
                                                     {/* Groups this responsibility belongs to */}
-                                                    {groupItems.length > 0 && (
+                                                    {groupNames.length > 0 && (
                                                         <div className="pt-4 border-t">
                                                             <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                                                                 <FolderOpen className="h-4 w-4" />
                                                                 Responsibility Groups
                                                             </h4>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {groupItems.map((item: any) => (
-                                                                    <Badge key={item.id} variant="secondary">
-                                                                        {item.group?.name || 'Unknown Group'}
+                                                                {groupNames.map((name, idx) => (
+                                                                    <Badge key={idx} variant="secondary">
+                                                                        {name}
                                                                     </Badge>
                                                                 ))}
                                                             </div>
@@ -692,7 +834,7 @@ export default function AdminResponsibilitiesPage() {
                                                         </div>
                                                     )}
 
-                                                    {groupItems.length === 0 && assignments.length === 0 && !resp.description && (
+                                                    {groupNames.length === 0 && assignments.length === 0 && !resp.description && (
                                                         <p className="text-sm text-muted-foreground text-center py-2">
                                                             No additional details available
                                                         </p>
@@ -703,6 +845,75 @@ export default function AdminResponsibilitiesPage() {
                                     </Collapsible>
                                 )
                             })}
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {viewFilteredResponsibilities.length > itemsPerPage && (
+                        <div className="flex items-center justify-between pt-4 border-t mt-4">
+                            <p className="text-sm text-muted-foreground">
+                                Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, viewFilteredResponsibilities.length)} of {viewFilteredResponsibilities.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(page => {
+                                        if (totalPages <= 5) return true
+                                        if (page === 1 || page === totalPages) return true
+                                        return Math.abs(page - currentPage) <= 1
+                                    })
+                                    .map((page, idx, arr) => (
+                                        <span key={page} className="flex items-center">
+                                            {idx > 0 && arr[idx - 1] !== page - 1 && (
+                                                <span className="px-1 text-muted-foreground">…</span>
+                                            )}
+                                            <Button
+                                                variant={currentPage === page ? "default" : "outline"}
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() => setCurrentPage(page)}
+                                            >
+                                                {page}
+                                            </Button>
+                                        </span>
+                                    ))
+                                }
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </CardContent>

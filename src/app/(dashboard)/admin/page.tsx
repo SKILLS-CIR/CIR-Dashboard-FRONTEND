@@ -3,6 +3,7 @@
 import { useEffect, useState,useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import Link from "next/link"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { api } from "@/lib/api"
 import { Employee, Department, WorkSubmission, SubDepartment,Assignment, CreateResponsibilityDto,Responsibility} from "@/types/cir"
@@ -771,15 +772,48 @@ export default function AdminDashboardPage() {
                     </Select>
 
                     {/* Date Range Picker */}
-                    <Popover>
+                    {/* <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className="justify-start text-left font-normal">
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <div className="flex gap-2 p-2 border-b">
+                        <PopoverContent className="w-auto p-0" align="end"> */}
+                            {/* <div className="flex gap-2 p-2 border-b">
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
+                                    7 days
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
+                                    30 days
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>
+                                    This Month
+                                </Button>
+                            </div> */}
+                            {/* <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange.from}
+                                selected={dateRange}
+                                onSelect={(range) => range?.from && range?.to && setDateRange({ from: range.from, to: range.to })}
+                                numberOfMonths={1}
+                                className="p-2"
+                            />
+                        </PopoverContent>
+                    </Popover> */}
+                     {/* Date Range Picker */}
+                        <span className="text-sm font-medium text-muted-foreground">Date Range</span>
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[160px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(dateRange.from, "MMM d, yyyy")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                        <div className="flex gap-2 p-2 border-b">
                                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
                                     7 days
                                 </Button>
@@ -790,17 +824,38 @@ export default function AdminDashboardPage() {
                                     This Month
                                 </Button>
                             </div>
-                            <Calendar
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange.from}
-                                selected={dateRange}
-                                onSelect={(range) => range?.from && range?.to && setDateRange({ from: range.from, to: range.to })}
-                                numberOfMonths={1}
-                                className="p-2"
-                            />
-                        </PopoverContent>
-                    </Popover>
+                                    <CalendarComponent
+                                        mode="single"
+                                        selected={dateRange.from}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDateRange(prev => ({ ...prev, from: date }))
+                                            }
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <span className="text-sm text-muted-foreground">to</span>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[160px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(dateRange.to, "MMM d, yyyy")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <CalendarComponent
+                                        mode="single"
+                                        selected={dateRange.to}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDateRange(prev => ({ ...prev, to: date }))
+                                            }
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                 </div>
             </div>
 
@@ -1225,7 +1280,7 @@ export default function AdminDashboardPage() {
                                                     <Building2 className="h-3 w-3 mr-1" />
                                                     {resp.departmentName}
                                                 </Badge>
-                                                <Badge variant="outline" className="rounded-none text-xs bg-blue-50">
+                                                <Badge variant="outline" className="rounded-none text-xs ">
                                                     <Layers className="h-3 w-3 mr-1" />
                                                     {resp.subDepartmentName}
                                                 </Badge>

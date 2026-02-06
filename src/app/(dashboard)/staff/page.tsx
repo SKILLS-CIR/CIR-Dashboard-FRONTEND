@@ -376,7 +376,7 @@ export default function StaffDashboardPage() {
         labels: dailyData.map(d => d.date),
         datasets: [
             {
-                label: 'Submissions',
+                label: 'Responsibilities',
                 data: dailyData.map(d => d.submissions),
                 borderColor: 'rgba(99, 102, 241, 1)',
                 backgroundColor: 'rgba(99, 102, 241, 0.2)',
@@ -393,7 +393,7 @@ export default function StaffDashboardPage() {
         labels: weeklyData.map(d => d.week),
         datasets: [
             {
-                label: 'Submissions',
+                label: 'Responsibilities',
                 data: weeklyData.map(d => d.submissions),
                 backgroundColor: 'rgba(99, 102, 241, 0.8)',
                 borderColor: 'rgba(99, 102, 241, 1)',
@@ -776,55 +776,49 @@ export default function StaffDashboardPage() {
                     </div>
 
                     {/* Date Range Picker */}
-                    <div className="flex items-center gap-2">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="justify-start text-left font-normal">
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                                <div className="p-3 space-y-3">
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
-                                        >
-                                            Last 7 days
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
-                                        >
-                                            Last 30 days
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => setDateRange({
-                                                from: startOfMonth(new Date()),
-                                                to: endOfMonth(new Date())
-                                            })}
-                                        >
-                                            This Month
-                                        </Button>
-                                    </div>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-muted-foreground">Date Range</span>
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[160px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(dateRange.from, "MMM d, yyyy")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
                                     <CalendarComponent
-                                        mode="range"
-                                        selected={{ from: dateRange.from, to: dateRange.to }}
-                                        onSelect={(range) => {
-                                            if (range?.from && range?.to) {
-                                                setDateRange({ from: range.from, to: range.to })
+                                        mode="single"
+                                        selected={dateRange.from}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDateRange(prev => ({ ...prev, from: date }))
                                             }
                                         }}
-                                        numberOfMonths={2}
                                     />
-                                </div>
-                            </PopoverContent>
-                        </Popover>
+                                </PopoverContent>
+                            </Popover>
+                            <span className="text-sm text-muted-foreground">to</span>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[160px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(dateRange.to, "MMM d, yyyy")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <CalendarComponent
+                                        mode="single"
+                                        selected={dateRange.to}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDateRange(prev => ({ ...prev, to: date }))
+                                            }
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                     </div>
                 </div>
 
@@ -942,11 +936,11 @@ export default function StaffDashboardPage() {
                                         <div>
                                             <CardTitle className="flex items-center gap-2">
                                                 <TrendingUp className="h-5 w-5 text-indigo-600" />
-                                                Daily Submissions
+                                                Daily Responsibilities
                                             </CardTitle>
-                                            <CardDescription>Number of submissions per day</CardDescription>
+                                            <CardDescription>Number of responsibilities per day</CardDescription>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Submissions: d.submissions, Hours: d.hours })), 'daily_submissions')}>
+                                        <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Responsibilities: d.submissions, Hours: d.hours })), 'daily_responsibilities')}>
                                             <Download className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -966,7 +960,7 @@ export default function StaffDashboardPage() {
                                             <BarChart3 className="h-5 w-5 text-purple-600" />
                                             Weekly Comparison
                                         </CardTitle>
-                                        <CardDescription>Submissions and hours by week</CardDescription>
+                                        <CardDescription>Responsibilities and hours by week</CardDescription>
                                     </div>
                                     <Button variant="outline" size="sm" onClick={() => exportToCSV(weeklyData.map(w => ({ Week: w.week, Submissions: w.submissions, Hours: w.hours })), 'weekly_comparison')}>
                                         <Download className="h-4 w-4" />
@@ -1120,10 +1114,10 @@ export default function StaffDashboardPage() {
                 </Tabs>
 
                 {/* Assignments Overview */}
-                <Card className="hover:shadow-lg transition-shadow">
+                {/* <Card className="hover:shadow-lg transition-shadow">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            {/* <Target className="h-5 w-5 text-blue-600" /> */}
+                        
                             Active Assignments
                         </CardTitle>
                         <CardDescription>Your current responsibility assignments</CardDescription>
@@ -1135,7 +1129,7 @@ export default function StaffDashboardPage() {
                             {assignments.filter(a => a.status === 'IN_PROGRESS').length} in progress
                         </p>
                     </CardContent>
-                </Card>
+                </Card> */}
             </div>
 
             {/* Quick Links */}

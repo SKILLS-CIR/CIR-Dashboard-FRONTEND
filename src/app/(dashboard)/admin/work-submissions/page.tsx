@@ -481,6 +481,7 @@ export default function AdminWorkSubmissionsPage() {
                                     variant="destructive"
                                     onClick={() => handleVerify(false)}
                                     disabled={isVerifying || !verifyComment.trim()}
+                                    className="bg-black dark:bg-white text-white dark:text-black border-2 border-black dark:border-white hover:bg-gray-800 dark:hover:bg-gray-200 "
                                 >
                                     <XCircle className="h-4 w-4 mr-2" />
                                     Reject
@@ -488,7 +489,7 @@ export default function AdminWorkSubmissionsPage() {
                                 <Button
                                     onClick={() => handleVerify(true)}
                                     disabled={isVerifying}
-                                    className="bg-green-600 hover:bg-green-700"
+                                    className="bg-black dark:bg-white text-white dark:text-black border-2 border-black dark:border-white hover:bg-gray-800 dark:hover:bg-gray-200 "
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Verify

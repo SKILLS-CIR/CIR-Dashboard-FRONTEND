@@ -450,7 +450,7 @@ export default function AdminUsersPage() {
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>
-                      <RoleBadge role={employee.role} />
+                     {employee.role}
                     </TableCell>
                     <TableCell>
                       {employee.department?.name || 'N/A'}

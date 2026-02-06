@@ -57,6 +57,8 @@ import {
     BarChart3,
     Eye,
     Target,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
@@ -90,6 +92,24 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
     const [viewResponsibilityDialogOpen, setViewResponsibilityDialogOpen] = useState(false)
     const [selectedResponsibility, setSelectedResponsibility] = useState<Responsibility | null>(null)
     const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null)
+
+    // Pagination state
+    const ITEMS_PER_PAGE = 10
+    const [assignmentsPage, setAssignmentsPage] = useState(1)
+    const [submissionsPage, setSubmissionsPage] = useState(1)
+
+    // Paginated data
+    const assignmentsTotalPages = Math.ceil(assignments.length / ITEMS_PER_PAGE)
+    const paginatedAssignments = useMemo(() => {
+        const start = (assignmentsPage - 1) * ITEMS_PER_PAGE
+        return assignments.slice(start, start + ITEMS_PER_PAGE)
+    }, [assignments, assignmentsPage])
+
+    const submissionsTotalPages = Math.ceil(submissions.length / ITEMS_PER_PAGE)
+    const paginatedSubmissions = useMemo(() => {
+        const start = (submissionsPage - 1) * ITEMS_PER_PAGE
+        return submissions.slice(start, start + ITEMS_PER_PAGE)
+    }, [submissions, submissionsPage])
 
     function openViewResponsibilityDialog(assignment: Assignment) {
         setSelectedAssignment(assignment)
@@ -729,57 +749,86 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
                                     <p>No assignments found</p>
                                 </div>
                             ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Responsibility</TableHead>
-                                            <TableHead>Cycle</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Assigned</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {assignments.map((assignment) => (
-                                            <TableRow key={assignment.id}>
-                                                <TableCell className="font-medium">
-                                                    <div className="flex items-center gap-2">
-                                                        <Target className="h-4 w-4 text-indigo-500" />
-                                                        {assignment.responsibility?.title || 'N/A'}
-                                                    </div>
-                                                    {assignment.responsibility?.description && (
-                                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                                            {assignment.responsibility.description}
-                                                        </p>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="secondary">
-                                                        {assignment.responsibility?.cycle || 'N/A'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant={assignment.status === 'PENDING' ? 'secondary' : assignment.status === 'VERIFIED' ? 'default' : 'outline'}>
-                                                        {assignment.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {format(new Date(assignment.assignedAt), "MMM d, yyyy")}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => openViewResponsibilityDialog(assignment)}
-                                                    >
-                                                        <Eye className="h-4 w-4 mr-1" />
-                                                        View
-                                                    </Button>
-                                                </TableCell>
+                                <>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Responsibility</TableHead>
+                                                <TableHead>Cycle</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Assigned</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {paginatedAssignments.map((assignment) => (
+                                                <TableRow key={assignment.id}>
+                                                    <TableCell className="font-medium">
+                                                        <div className="flex items-center gap-2">
+                                                            {assignment.responsibility?.title || 'N/A'}
+                                                        </div>
+                                                        {assignment.responsibility?.description && (
+                                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                                                {assignment.responsibility.description}
+                                                            </p>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="secondary">
+                                                            {assignment.responsibility?.cycle || 'N/A'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={assignment.status === 'PENDING' ? 'secondary' : assignment.status === 'VERIFIED' ? 'default' : 'outline'}>
+                                                            {assignment.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">
+                                                        {format(new Date(assignment.assignedAt), "MMM d, yyyy")}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => openViewResponsibilityDialog(assignment)}
+                                                        >
+                                                            <Eye className="h-4 w-4 mr-1" />
+                                                            View
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+
+                                    {assignmentsTotalPages > 1 && (
+                                        <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                                            <p className="text-sm text-muted-foreground">
+                                                Page {assignmentsPage} of {assignmentsTotalPages} ({assignments.length} assignments)
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setAssignmentsPage(p => Math.max(1, p - 1))}
+                                                    disabled={assignmentsPage === 1}
+                                                >
+                                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                                    Previous
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setAssignmentsPage(p => Math.min(assignmentsTotalPages, p + 1))}
+                                                    disabled={assignmentsPage === assignmentsTotalPages}
+                                                >
+                                                    Next
+                                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </TabsContent>
 
@@ -790,42 +839,67 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
                                     <p>No submissions found</p>
                                 </div>
                             ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Responsibility</TableHead>
-                                            <TableHead>Hours</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Submitted</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {submissions.slice(0, 20).map((submission) => (
-                                            <TableRow key={submission.id}>
-                                                <TableCell className="font-medium max-w-[200px] truncate">
-                                                    {submission.assignment?.responsibility?.title || 'N/A'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="h-3 w-3" />
-                                                        {submission.hoursWorked || '-'}h
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <SubmissionStatusBadge status={submission.status as any} />
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {format(new Date(submission.submittedAt), "MMM d, yyyy")}
-                                                </TableCell>
+                                <>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Responsibility</TableHead>
+                                                <TableHead>Hours</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Submitted</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
-                            {submissions.length > 20 && (
-                                <p className="text-sm text-muted-foreground text-center mt-4">
-                                    Showing 20 of {submissions.length} submissions
-                                </p>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {paginatedSubmissions.map((submission) => (
+                                                <TableRow key={submission.id}>
+                                                    <TableCell className="font-medium max-w-[200px] truncate">
+                                                        {submission.assignment?.responsibility?.title || 'N/A'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="flex items-center gap-1">
+                                                            <Clock className="h-3 w-3" />
+                                                            {submission.hoursWorked || '-'}h
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <SubmissionStatusBadge status={submission.status as any} />
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">
+                                                        {format(new Date(submission.submittedAt), "MMM d, yyyy")}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+
+                                    {submissionsTotalPages > 1 && (
+                                        <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                                            <p className="text-sm text-muted-foreground">
+                                                Page {submissionsPage} of {submissionsTotalPages} ({submissions.length} submissions)
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setSubmissionsPage(p => Math.max(1, p - 1))}
+                                                    disabled={submissionsPage === 1}
+                                                >
+                                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                                    Previous
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setSubmissionsPage(p => Math.min(submissionsTotalPages, p + 1))}
+                                                    disabled={submissionsPage === submissionsTotalPages}
+                                                >
+                                                    Next
+                                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </TabsContent>
                     </Tabs>
@@ -837,7 +911,7 @@ function StaffDetailsContent({ staffId }: { staffId: string }) {
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Target className="h-5 w-5 text-indigo-500" />
+                            {/* <Target className="h-5 w-5 text-indigo-500" /> */}
                             Responsibility Details
                         </DialogTitle>
                         <DialogDescription>

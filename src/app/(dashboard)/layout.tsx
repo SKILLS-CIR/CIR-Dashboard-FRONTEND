@@ -82,12 +82,12 @@ const navigation: NavigationItem[] = [
   //   icon: <BarChart3 className="w-5 h-5" />,
   //   roles: ["ADMIN"]
   // },
-  {
-    name: "Profile",
-    href: "/admin/profile",
-    icon: <User className="w-5 h-5" />,
-    roles: ["ADMIN"]
-  },
+  // {
+  //   name: "Profile",
+  //   href: "/admin/profile",
+  //   icon: <User className="w-5 h-5" />,
+  //   roles: ["ADMIN"]
+  // },
 
   // Manager Navigation
   {
@@ -114,24 +114,24 @@ const navigation: NavigationItem[] = [
     icon: <ClipboardList className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
-  {
-    name: " Manage Group Responsibilities",
-    href: "/manager/responsibility-groups",
-    icon: <FolderOpen className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
+  // {
+  //   name: " Manage Group Responsibilities",
+  //   href: "/manager/responsibility-groups",
+  //   icon: <FolderOpen className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
   {
     name: "Staff",
     href: "/manager/staff",
     icon: <UserCheck className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
-  {
-    name: "Profile",
-    href: "/manager/profile",
-    icon: <User className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
+  // {
+  //   name: "Profile",
+  //   href: "/manager/profile",
+  //   icon: <User className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
 
   // Staff Navigation
   {
@@ -164,12 +164,12 @@ const navigation: NavigationItem[] = [
   //   icon: <BarChart3 className="w-5 h-5" />,
   //   roles: ["STAFF"]
   // },
-  {
-    name: "Profile",
-    href: "/staff/profile",
-    icon: <User className="w-5 h-5" />,
-    roles: ["STAFF"]
-  },
+  // {
+  //   name: "Profile",
+  //   href: "/staff/profile",
+  //   icon: <User className="w-5 h-5" />,
+  //   roles: ["STAFF"]
+  // },
 ]
 
 function NavItem({

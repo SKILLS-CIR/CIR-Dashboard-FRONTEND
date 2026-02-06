@@ -33,7 +33,9 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, FolderOpen, ChevronDown, User, Briefcase, Upload, FileText, Eye, Calendar } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, FolderOpen, FolderPlus, ChevronDown, User, Briefcase, Upload, FileText, Eye, Calendar, X } from "lucide-react"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -65,9 +67,13 @@ export default function ManagerAssignmentsPage() {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1)
     const [searchQuery, setSearchQuery] = useState("")
+    
+    // Filter state for All Assignments
+    const [filterStaff, setFilterStaff] = useState<string>("all")
+    const [filterGroup, setFilterGroup] = useState<string>("all")
 
     // View mode for the assignments list
-    const [viewMode, setViewMode] = useState<"all" | "groups" | "responsibilities">("all")
+    const [viewMode, setViewMode] = useState<"all" | "groups" | "responsibilities" | "responsibility-groups">("all")
 
     // Responsibility management state
     const [viewingResponsibility, setViewingResponsibility] = useState<Responsibility | null>(null)
@@ -115,8 +121,32 @@ export default function ManagerAssignmentsPage() {
     // Bulk import dialog state
     const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false)
 
+    // Group management state
+    const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false)
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false)
+    const [newGroupName, setNewGroupName] = useState("")
+    const [newGroupDescription, setNewGroupDescription] = useState("")
+    const [newGroupCycle, setNewGroupCycle] = useState("")
+    const [selectedResponsibilityIds, setSelectedResponsibilityIds] = useState<Set<number>>(new Set())
+
+    // Edit group dialog state
+    const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false)
+    const [editingGroup, setEditingGroup] = useState<ResponsibilityGroup | null>(null)
+    const [editGroupName, setEditGroupName] = useState("")
+    const [editGroupDescription, setEditGroupDescription] = useState("")
+    const [isUpdatingGroup, setIsUpdatingGroup] = useState(false)
+
+    // Add responsibilities to group dialog state
+    const [addToGroupDialogOpen, setAddToGroupDialogOpen] = useState(false)
+    const [addingToGroup, setAddingToGroup] = useState<ResponsibilityGroup | null>(null)
+    const [responsibilitiesToAdd, setResponsibilitiesToAdd] = useState<Set<number>>(new Set())
+    const [isAddingToGroup, setIsAddingToGroup] = useState(false)
+
     useEffect(() => {
         fetchData()
+        // Auto-generate cycle from current month
+        const now = new Date()
+        setNewGroupCycle(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
     }, [])
 
     async function fetchData() {
@@ -226,13 +256,24 @@ export default function ManagerAssignmentsPage() {
     // Filtered and paginated assignments
     const filteredAssignments = useMemo(() => {
         return assignments.filter(a => {
+            // Text search filter
             const searchLower = searchQuery.toLowerCase()
-            return (
+            const matchesSearch = !searchQuery || 
                 a.responsibility?.title?.toLowerCase().includes(searchLower) ||
                 a.staff?.name?.toLowerCase().includes(searchLower)
-            )
+            
+            // Staff filter
+            const matchesStaff = filterStaff === "all" || a.staffId === filterStaff
+            
+            // Group filter
+            const groupInfo = responsibilityToGroupMap.get(String(a.responsibilityId))
+            const matchesGroup = filterGroup === "all" || 
+                (filterGroup === "ungrouped" && !groupInfo) ||
+                (groupInfo?.groupId === filterGroup)
+            
+            return matchesSearch && matchesStaff && matchesGroup
         })
-    }, [assignments, searchQuery])
+    }, [assignments, searchQuery, filterStaff, filterGroup, responsibilityToGroupMap])
 
     const totalPages = Math.ceil(filteredAssignments.length / ITEMS_PER_PAGE)
 
@@ -241,10 +282,10 @@ export default function ManagerAssignmentsPage() {
         return filteredAssignments.slice(start, start + ITEMS_PER_PAGE)
     }, [filteredAssignments, currentPage])
 
-    // Reset to page 1 when search changes
+    // Reset to page 1 when search or filters change
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchQuery])
+    }, [searchQuery, filterStaff, filterGroup])
 
     async function handleCreate() {
         if (assignmentMode === "group") {
@@ -485,6 +526,211 @@ export default function ManagerAssignmentsPage() {
         setRespCurrentPage(1)
     }, [respSearchQuery])
 
+    // Get responsibilities that match the selected cycle for group creation
+    const cycleFilteredResponsibilities = useMemo(() => {
+        if (!newGroupCycle || newGroupCycle.length !== 7) return responsibilities
+
+        const [yearStr, monthStr] = newGroupCycle.split('-')
+        const year = parseInt(yearStr)
+        const month = parseInt(monthStr)
+
+        if (isNaN(year) || isNaN(month)) return responsibilities
+
+        return responsibilities.filter(resp => {
+            // If responsibility has a cycle field, match it exactly
+            if (resp.cycle === newGroupCycle) return true
+            return false
+        })
+    }, [responsibilities, newGroupCycle])
+
+    // Get responsibilities that can be added to an existing group (matching group's cycle)
+    const getResponsibilitiesForGroup = (group: ResponsibilityGroup | null) => {
+        if (!group) return []
+        const groupRespIds = new Set(group.items?.map(item => String(item.responsibilityId)) || [])
+        
+        // Filter by group's cycle if it has one
+        return responsibilities.filter(r => {
+            // Don't include already added responsibilities
+            if (groupRespIds.has(String(r.id))) return false
+            
+            // If group has a cycle, only show matching responsibilities
+            if (group.cycle && r.cycle !== group.cycle) return false
+            
+            return true
+        })
+    }
+
+    // Toggle responsibility selection for create group
+    const toggleResponsibilitySelection = (id: number) => {
+        setSelectedResponsibilityIds(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(id)) {
+                newSet.delete(id)
+            } else {
+                newSet.add(id)
+            }
+            return newSet
+        })
+    }
+
+    // Toggle responsibility selection for adding to existing group
+    const toggleResponsibilityToAdd = (id: number) => {
+        setResponsibilitiesToAdd(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(id)) {
+                newSet.delete(id)
+            } else {
+                newSet.add(id)
+            }
+            return newSet
+        })
+    }
+
+    // Select all filtered responsibilities for create group
+    const handleSelectAllForCreate = () => {
+        const allIds = cycleFilteredResponsibilities.map(r => parseInt(r.id))
+        setSelectedResponsibilityIds(new Set(allIds))
+    }
+
+    // Clear all selections for create group
+    const handleClearAllForCreate = () => {
+        setSelectedResponsibilityIds(new Set())
+    }
+
+    // Create a new group
+    async function handleCreateGroup() {
+        if (!newGroupName.trim()) {
+            toast.error("Group name is required")
+            return
+        }
+
+        setIsCreatingGroup(true)
+        try {
+            await api.responsibilityGroups.create({
+                name: newGroupName.trim(),
+                description: newGroupDescription.trim() || undefined,
+                cycle: newGroupCycle.trim() || undefined,
+                responsibilityIds: Array.from(selectedResponsibilityIds),
+            })
+            toast.success("Responsibility group created successfully")
+            setCreateGroupDialogOpen(false)
+            resetCreateGroupForm()
+            fetchData()
+        } catch (error: any) {
+            console.error("Failed to create group:", error)
+            toast.error(error.message || "Failed to create group")
+        } finally {
+            setIsCreatingGroup(false)
+        }
+    }
+
+    function resetCreateGroupForm() {
+        setNewGroupName("")
+        setNewGroupDescription("")
+        setSelectedResponsibilityIds(new Set())
+        const now = new Date()
+        setNewGroupCycle(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+    }
+
+    // Open edit group dialog
+    function openEditGroupDialog(group: ResponsibilityGroup) {
+        setEditingGroup(group)
+        setEditGroupName(group.name)
+        setEditGroupDescription(group.description || "")
+        setEditGroupDialogOpen(true)
+    }
+
+    // Update group
+    async function handleUpdateGroup() {
+        if (!editingGroup) return
+        if (!editGroupName.trim()) {
+            toast.error("Group name is required")
+            return
+        }
+
+        setIsUpdatingGroup(true)
+        try {
+            await api.responsibilityGroups.update(editingGroup.id, {
+                name: editGroupName.trim(),
+                description: editGroupDescription.trim() || undefined,
+            })
+            toast.success("Group updated successfully")
+            setEditGroupDialogOpen(false)
+            setEditingGroup(null)
+            fetchData()
+        } catch (error: any) {
+            console.error("Failed to update group:", error)
+            toast.error(error.message || "Failed to update group")
+        } finally {
+            setIsUpdatingGroup(false)
+        }
+    }
+
+    // Delete group
+    async function handleDeleteGroup(group: ResponsibilityGroup) {
+        if (!confirm(`Are you sure you want to delete the group "${group.name}"? This will NOT delete the responsibilities inside.`)) {
+            return
+        }
+
+        try {
+            await api.responsibilityGroups.delete(group.id)
+            toast.success("Group deleted successfully")
+            fetchData()
+        } catch (error: any) {
+            console.error("Failed to delete group:", error)
+            toast.error(error.message || "Failed to delete group")
+        }
+    }
+
+    // Open add responsibilities to group dialog
+    function openAddToGroupDialog(group: ResponsibilityGroup) {
+        setAddingToGroup(group)
+        setResponsibilitiesToAdd(new Set())
+        setAddToGroupDialogOpen(true)
+    }
+
+    // Add responsibilities to group
+    async function handleAddResponsibilitiesToGroup() {
+        if (!addingToGroup) return
+        if (responsibilitiesToAdd.size === 0) {
+            toast.error("Please select at least one responsibility")
+            return
+        }
+
+        setIsAddingToGroup(true)
+        try {
+            await api.responsibilityGroups.addResponsibilities(addingToGroup.id, {
+                responsibilityIds: Array.from(responsibilitiesToAdd),
+            })
+            toast.success(`Added ${responsibilitiesToAdd.size} responsibilities to the group`)
+            setAddToGroupDialogOpen(false)
+            setAddingToGroup(null)
+            setResponsibilitiesToAdd(new Set())
+            fetchData()
+        } catch (error: any) {
+            console.error("Failed to add responsibilities:", error)
+            toast.error(error.message || "Failed to add responsibilities")
+        } finally {
+            setIsAddingToGroup(false)
+        }
+    }
+
+    // Remove responsibility from group
+    async function handleRemoveFromGroup(groupId: string, responsibilityId: string, responsibilityTitle: string) {
+        if (!confirm(`Remove "${responsibilityTitle}" from this group?`)) {
+            return
+        }
+
+        try {
+            await api.responsibilityGroups.removeResponsibility(groupId, responsibilityId)
+            toast.success("Responsibility removed from group")
+            fetchData()
+        } catch (error: any) {
+            console.error("Failed to remove responsibility:", error)
+            toast.error(error.message || "Failed to remove responsibility")
+        }
+    }
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -497,7 +743,7 @@ export default function ManagerAssignmentsPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Assignments</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Manage Duty</h1>
                     <p className="text-muted-foreground">
                         Create and manage work assignments for your team
                     </p>
@@ -528,6 +774,11 @@ export default function ManagerAssignmentsPage() {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
+                      
+                                <Button onClick={() => setCreateGroupDialogOpen(true)}>
+                                    <FolderPlus className="h-4 w-4 mr-2" /> Group Responsibilities
+                                </Button>
+                      
 
                     {/* Create Assignment Button */}
                     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -739,21 +990,105 @@ export default function ManagerAssignmentsPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "all" | "groups" | "responsibilities")}>
-                        <TabsList className="mb-4">
-                            <TabsTrigger value="groups">By Groups</TabsTrigger>
-                            <TabsTrigger value="responsibilities">
-                                <Briefcase className="h-4 w-4 mr-1" />
-                                Responsibilities
-                            </TabsTrigger>
-                            <TabsTrigger value="all">All Assignments</TabsTrigger>
-                        </TabsList>
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "all" | "groups" | "responsibilities" | "responsibility-groups")}>
+                        <div className="flex items-center justify-between mb-4">
+                            <TabsList>
+                                {/* Staff Assignments View */}
+                                {/* <TabsTrigger value="groups">By Groups</TabsTrigger> */}  
+                            
+                                <TabsTrigger value="responsibilities">
+                                    <Briefcase className="h-4 w-4 mr-1" />
+                                    Responsibilities
+                                </TabsTrigger>
+                                <TabsTrigger value="all">All Assignments</TabsTrigger>
+                                <TabsTrigger value="responsibility-groups">
+                                    <FolderOpen className="h-4 w-4 mr-1" />
+                                    Responsibility Groups
+                                </TabsTrigger>
+                            </TabsList>
+                            {/* {viewMode === "responsibility-groups" && (
+                                <Button onClick={() => setCreateGroupDialogOpen(true)}>
+                                    <FolderPlus className="h-4 w-4 mr-2" /> Create Group
+                                </Button>
+                            )} */}
+                        </div>
 
                         {/* All Assignments View */}
                         <TabsContent value="all">
+                            {/* Filters */}
+                            <div className="flex flex-wrap items-center gap-4 mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-sm text-muted-foreground whitespace-nowrap">Staff:</Label>
+                                    <Select value={filterStaff} onValueChange={setFilterStaff}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="All Staff" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Staff</SelectItem>
+                                            {staff.map((emp) => (
+                                                <SelectItem key={emp.id} value={emp.id}>
+                                                    {emp.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-sm text-muted-foreground whitespace-nowrap">Group:</Label>
+                                    <Select value={filterGroup} onValueChange={setFilterGroup}>
+                                        <SelectTrigger className="w-[200px]">
+                                            <SelectValue placeholder="All Groups" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Groups</SelectItem>
+                                            <SelectItem value="ungrouped">Ungrouped</SelectItem>
+                                            {responsibilityGroups.map((group) => (
+                                                <SelectItem key={group.id} value={group.id}>
+                                                    {group.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="w-[200px]">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-9 h-9"
+                                        />
+                                    </div>
+                                </div>
+
+                                {(filterStaff !== "all" || filterGroup !== "all" || searchQuery) && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => {
+                                            setFilterStaff("all")
+                                            setFilterGroup("all")
+                                            setSearchQuery("")
+                                        }}
+                                    >
+                                        <X className="h-4 w-4 mr-1" />
+                                        Clear Filters
+                                    </Button>
+                                )}
+
+                                <p className="text-sm text-muted-foreground ml-auto">
+                                    Showing {filteredAssignments.length} of {assignments.length}
+                                </p>
+                            </div>
+
                             {filteredAssignments.length === 0 ? (
                                 <p className="text-muted-foreground text-center py-8">
-                                    {searchQuery ? "No assignments match your search." : "No assignments yet. Create one to get started."}
+                                    {(searchQuery || filterStaff !== "all" || filterGroup !== "all") 
+                                        ? `No assignments match your filters. (${assignments.length} total assignments)` 
+                                        : "No assignments yet. Create one to get started."}
                                 </p>
                             ) : (
                                 <>
@@ -1123,6 +1458,141 @@ export default function ManagerAssignmentsPage() {
                                 </>
                             )}
                         </TabsContent>
+
+                        {/* Responsibility Groups Tab */}
+                        <TabsContent value="responsibility-groups">
+                            {responsibilityGroups.length === 0 ? (
+                                <div className="py-8 text-center">
+                                    <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                                    <p className="text-muted-foreground">No responsibility groups yet.</p>
+                                    <Button 
+                                        variant="outline" 
+                                        className="mt-4"
+                                        onClick={() => setCreateGroupDialogOpen(true)}
+                                    >
+                                        <FolderPlus className="h-4 w-4 mr-2" />
+                                        Create Your First Group
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {responsibilityGroups.map((group) => (
+                                        <Collapsible key={group.id}>
+                                            <div className="border rounded-lg">
+                                                <CollapsibleTrigger className="w-full">
+                                                    <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <FolderOpen className="h-5 w-5 text-primary" />
+                                                            <div className="text-left">
+                                                                <p className="font-medium">{group.name}</p>
+                                                                {group.description && (
+                                                                    <p className="text-sm text-muted-foreground">{group.description}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <Badge variant="secondary">
+                                                                {group._count?.items || group.items?.length || 0} responsibilities
+                                                            </Badge>
+                                                            {group.cycle && (
+                                                                <Badge variant="outline">
+                                                                    <Calendar className="h-3 w-3 mr-1" />
+                                                                    {group.cycle}
+                                                                </Badge>
+                                                            )}
+                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent>
+                                                    <div className="border-t px-4 py-3 bg-muted/30">
+                                                        {group.items && group.items.length > 0 ? (
+                                                            <div className="space-y-2">
+                                                                {group.items.map((item) => (
+                                                                    <div 
+                                                                        key={item.id} 
+                                                                        className="flex items-center justify-between p-2 bg-background rounded border"
+                                                                    >
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Briefcase className="h-4 w-4 text-muted-foreground" />
+                                                                            <span className="text-sm">
+                                                                                {item.responsibility?.title || `Responsibility #${item.responsibilityId}`}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {item.responsibility?.cycle && (
+                                                                                <Badge variant="outline" className="text-xs">
+                                                                                    {item.responsibility.cycle}
+                                                                                </Badge>
+                                                                            )}
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    handleRemoveFromGroup(
+                                                                                        group.id,
+                                                                                        String(item.responsibilityId),
+                                                                                        item.responsibility?.title || 'this responsibility'
+                                                                                    )
+                                                                                }}
+                                                                            >
+                                                                                <X className="h-3 w-3" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground text-center py-2">
+                                                                No responsibilities in this group
+                                                            </p>
+                                                        )}
+                                                        <div className="mt-3 pt-3 border-t flex justify-end gap-2">
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    openAddToGroupDialog(group)
+                                                                }}
+                                                            >
+                                                                <Plus className="h-3 w-3 mr-1" />
+                                                                Add Responsibilities
+                                                            </Button>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    openEditGroupDialog(group)
+                                                                }}
+                                                            >
+                                                                <Pencil className="h-3 w-3 mr-1" />
+                                                                Edit
+                                                            </Button>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                className="text-destructive hover:text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    handleDeleteGroup(group)
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                                Delete
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </CollapsibleContent>
+                                            </div>
+                                        </Collapsible>
+                                    ))}
+                                </div>
+                            )}
+                        </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
@@ -1354,6 +1824,266 @@ export default function ManagerAssignmentsPage() {
                             fetchData()
                         }}
                     />
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Group Dialog */}
+            <Dialog open={createGroupDialogOpen} onOpenChange={setCreateGroupDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Create Responsibility Group</DialogTitle>
+                        <DialogDescription>
+                            Create a new group and add responsibilities to it
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        {/* Group Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="newGroupName">
+                                Group Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                id="newGroupName"
+                                placeholder="e.g., January Month Responsibilities"
+                                value={newGroupName}
+                                onChange={(e) => setNewGroupName(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Cycle */}
+                        <div className="space-y-2">
+                            <Label htmlFor="newGroupCycle">Cycle (YYYY-MM)</Label>
+                            <Input
+                                id="newGroupCycle"
+                                value={newGroupCycle}
+                                onChange={(e) => setNewGroupCycle(e.target.value)}
+                                placeholder="e.g., 2026-02"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Only responsibilities matching this cycle will be shown below
+                            </p>
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-2">
+                            <Label htmlFor="newGroupDescription">Description</Label>
+                            <Textarea
+                                id="newGroupDescription"
+                                placeholder="Describe this group..."
+                                value={newGroupDescription}
+                                onChange={(e) => setNewGroupDescription(e.target.value)}
+                                rows={2}
+                            />
+                        </div>
+
+                        {/* Select Responsibilities */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>
+                                    Select Responsibilities ({selectedResponsibilityIds.size} selected)
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleSelectAllForCreate}
+                                        disabled={cycleFilteredResponsibilities.length === 0}
+                                    >
+                                        Select All
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleClearAllForCreate}
+                                        disabled={selectedResponsibilityIds.size === 0}
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+                                {cycleFilteredResponsibilities.length === 0 ? (
+                                    <div className="p-4 text-center text-muted-foreground">
+                                        No responsibilities found for cycle {newGroupCycle || '(no cycle set)'}
+                                    </div>
+                                ) : (
+                                    cycleFilteredResponsibilities.map((resp) => (
+                                        <div
+                                            key={resp.id}
+                                            className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer"
+                                            onClick={() => toggleResponsibilitySelection(parseInt(resp.id))}
+                                        >
+                                            <Checkbox
+                                                checked={selectedResponsibilityIds.has(parseInt(resp.id))}
+                                                onCheckedChange={() => toggleResponsibilitySelection(parseInt(resp.id))}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium truncate">{resp.title}</p>
+                                                {resp.description && (
+                                                    <p className="text-sm text-muted-foreground truncate">{resp.description}</p>
+                                                )}
+                                            </div>
+                                            {resp.cycle && (
+                                                <Badge variant="outline" className="text-xs shrink-0">
+                                                    {resp.cycle}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateGroupDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleCreateGroup} disabled={isCreatingGroup}>
+                            {isCreatingGroup ? "Creating..." : "Create Group"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Group Dialog */}
+            <Dialog open={editGroupDialogOpen} onOpenChange={setEditGroupDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Group</DialogTitle>
+                        <DialogDescription>
+                            Update group details
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="editGroupName">
+                                Group Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                id="editGroupName"
+                                value={editGroupName}
+                                onChange={(e) => setEditGroupName(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="editGroupDescription">Description</Label>
+                            <Textarea
+                                id="editGroupDescription"
+                                value={editGroupDescription}
+                                onChange={(e) => setEditGroupDescription(e.target.value)}
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditGroupDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleUpdateGroup} disabled={isUpdatingGroup}>
+                            {isUpdatingGroup ? "Saving..." : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Add Responsibilities to Group Dialog */}
+            <Dialog open={addToGroupDialogOpen} onOpenChange={setAddToGroupDialogOpen}>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Add Responsibilities</DialogTitle>
+                        <DialogDescription>
+                            Add responsibilities to "{addingToGroup?.name}"
+                            {addingToGroup?.cycle && (
+                                <span className="block mt-1">
+                                    Only showing responsibilities matching cycle: <Badge variant="outline">{addingToGroup.cycle}</Badge>
+                                </span>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm text-muted-foreground">
+                                {responsibilitiesToAdd.size} selected
+                            </p>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const available = getResponsibilitiesForGroup(addingToGroup)
+                                        setResponsibilitiesToAdd(new Set(available.map(r => parseInt(r.id))))
+                                    }}
+                                    disabled={getResponsibilitiesForGroup(addingToGroup).length === 0}
+                                >
+                                    Select All
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setResponsibilitiesToAdd(new Set())}
+                                    disabled={responsibilitiesToAdd.size === 0}
+                                >
+                                    Clear
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                            {getResponsibilitiesForGroup(addingToGroup).length === 0 ? (
+                                <div className="p-4 text-center text-muted-foreground">
+                                    {addingToGroup?.cycle 
+                                        ? `No more responsibilities available for cycle ${addingToGroup.cycle}`
+                                        : "All responsibilities are already in this group"
+                                    }
+                                </div>
+                            ) : (
+                                getResponsibilitiesForGroup(addingToGroup).map((resp) => (
+                                    <div
+                                        key={resp.id}
+                                        className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer"
+                                        onClick={() => toggleResponsibilityToAdd(parseInt(resp.id))}
+                                    >
+                                        <Checkbox
+                                            checked={responsibilitiesToAdd.has(parseInt(resp.id))}
+                                            onCheckedChange={() => toggleResponsibilityToAdd(parseInt(resp.id))}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">{resp.title}</p>
+                                            {resp.description && (
+                                                <p className="text-sm text-muted-foreground truncate">{resp.description}</p>
+                                            )}
+                                        </div>
+                                        {resp.cycle && (
+                                            <Badge variant="outline" className="text-xs shrink-0">
+                                                {resp.cycle}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAddToGroupDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleAddResponsibilitiesToGroup}
+                            disabled={isAddingToGroup || responsibilitiesToAdd.size === 0}
+                        >
+                            {isAddingToGroup ? "Adding..." : `Add ${responsibilitiesToAdd.size} Responsibilities`}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

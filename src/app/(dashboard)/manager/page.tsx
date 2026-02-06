@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "@/components/providers/auth-context"
 import { api } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Employee, Assignment, WorkSubmission, Responsibility, SubDepartment } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -308,7 +309,7 @@ export default function ManagerDashboardPage() {
     const dailySubmissionsData = {
         labels: dailyData.map(d => d.date),
         datasets: [{
-            label: 'Total Submissions',
+            label: 'Total Responsibilities',
             data: dailyData.map(d => d.submissions),
             borderColor: 'rgba(99, 102, 241, 1)',
             backgroundColor: 'rgba(99, 102, 241, 0.15)',
@@ -601,54 +602,7 @@ export default function ManagerDashboardPage() {
                         {subDepartment?.name || 'Sub-Department'} performance metrics and insights
                     </p>
                 </div> */}
-                <div className="flex items-center gap-2">
-                    {/* Staff Filter */}
-                    <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                        <SelectTrigger className="w-[180px]">
-                            <Users className="h-4 w-4 mr-2" />
-                            <SelectValue placeholder="Select staff" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Staff</SelectItem>
-                            {staffList.map(staff => (
-                                <SelectItem key={staff.id} value={String(staff.id)}>
-                                    {staff.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    {/* Date Range Picker */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="justify-start text-left font-normal">
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <div className="flex gap-2 p-2 border-b">
-                                <Button size="sm" variant="outline" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
-                                    7 days
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
-                                    30 days
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>
-                                    This Month
-                                </Button>
-                            </div>
-                            <Calendar
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange.from}
-                                selected={dateRange}
-                                onSelect={(range) => range?.from && range?.to && setDateRange({ from: range.from, to: range.to })}
-                                numberOfMonths={1}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                </div>
+              
             </div>
 
             {/* Analytics Stats Cards (based on filtered date range) */}
@@ -704,7 +658,68 @@ export default function ManagerDashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+              <div className="flex items-center gap-2">
+                    {/* Staff Filter */}
+                    <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+                        <SelectTrigger className="w-[180px]">
+                            <Users className="h-4 w-4 mr-2" />
+                            <SelectValue placeholder="Select staff" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Staff</SelectItem>
+                            {staffList.map(staff => (
+                                <SelectItem key={staff.id} value={String(staff.id)}>
+                                    {staff.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
+                    {/* Date Range Picker */}
+                        <span className="text-sm font-medium text-muted-foreground">Date Range</span>
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[160px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(dateRange.from, "MMM d, yyyy")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <CalendarComponent
+                                        mode="single"
+                                        selected={dateRange.from}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDateRange(prev => ({ ...prev, from: date }))
+                                            }
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <span className="text-sm text-muted-foreground">to</span>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[160px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(dateRange.to, "MMM d, yyyy")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <CalendarComponent
+                                        mode="single"
+                                        selected={dateRange.to}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDateRange(prev => ({ ...prev, to: date }))
+                                            }
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                   
+                </div>
             {/* Tabs */}
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
@@ -730,10 +745,10 @@ export default function ManagerDashboardPage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <CardTitle className="flex items-center gap-2">
-                                            <Activity className="h-5 w-5 text-indigo-500" />
-                                            Daily Submissions
+                                            {/* <Activity className="h-5 w-5 text-indigo-500" /> */}
+                                            Daily Responsibilities
                                         </CardTitle>
-                                        <CardDescription>Submissions trend over time</CardDescription>
+                                        <CardDescription>Responsibilities trend over time</CardDescription>
                                     </div>
                                     <Button variant="outline" size="sm" onClick={() => exportToCSV(dailyData.map(d => ({ Date: d.date, Submissions: d.submissions, Verified: d.verified, Pending: d.pending, Rejected: d.rejected, Hours: d.hours })), 'daily_submissions')}>
                                         <Download className="h-4 w-4" />
@@ -751,7 +766,7 @@ export default function ManagerDashboardPage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <CardTitle className="flex items-center gap-2">
-                                            <Target className="h-5 w-5 text-green-500" />
+                                            {/* <Target className="h-5 w-5 text-green-500" /> */}
                                             Status Distribution
                                         </CardTitle>
                                         <CardDescription>Breakdown by submission status</CardDescription>
@@ -779,7 +794,7 @@ export default function ManagerDashboardPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle className="flex items-center gap-2">
-                                        <Clock className="h-5 w-5 text-purple-500" />
+                                        {/* <Clock className="h-5 w-5 text-purple-500" /> */}
                                         Hours Trend
                                     </CardTitle>
                                     <CardDescription>Daily hours worked</CardDescription>
