@@ -39,7 +39,7 @@ import {
 } from '@/types/cir'
 
 // API Base URL - configurable via environment variable
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
 
 
 // Token storage (memory-based for security, with localStorage + cookie fallback for persistence)
