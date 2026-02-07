@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Employee, SubDepartment, Department, Role } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,10 +33,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Plus, Eye, Pencil, Trash2, UserPlus } from "lucide-react"
+import { Search, Plus, Eye, Pencil, Trash2, UserPlus, KeyRound } from "lucide-react"
 import { toast } from "sonner"
 
 export default function AdminUsersPage() {
+  const router = useRouter()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([])
@@ -53,6 +55,13 @@ export default function AdminUsersPage() {
   // View dialog state
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null)
+
+  // Reset password dialog state
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false)
+  const [resetPasswordEmployee, setResetPasswordEmployee] = useState<Employee | null>(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isResettingPassword, setIsResettingPassword] = useState(false)
 
   // Form state for creating a user
   const [formName, setFormName] = useState("")
@@ -92,7 +101,7 @@ export default function AdminUsersPage() {
         api.departments.getAll(),
         api.subDepartments.getAll(),
       ])
-      
+
       // Enrich employees with department and subDepartment objects
       const enrichedEmployees = employeesData.map(emp => {
         const department = deptsData.find(d => d.id === emp.departmentId)
@@ -103,7 +112,7 @@ export default function AdminUsersPage() {
           subDepartment: subDepartment || emp.subDepartment,
         }
       })
-      
+
       setEmployees(enrichedEmployees)
       setFilteredEmployees(enrichedEmployees)
       setDepartments(deptsData)
@@ -185,6 +194,48 @@ export default function AdminUsersPage() {
     } catch (error) {
       console.error("Failed to delete employee:", error)
       toast.error("Failed to delete user")
+    }
+  }
+
+  // Reset password handlers
+  function openResetPasswordDialog(employee: Employee) {
+    setResetPasswordEmployee(employee)
+    setNewPassword("")
+    setConfirmPassword("")
+    setResetPasswordDialogOpen(true)
+  }
+
+  async function handleResetPassword() {
+    if (!resetPasswordEmployee) return
+
+    if (!newPassword.trim()) {
+      toast.error("Please enter a new password")
+      return
+    }
+
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters")
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match")
+      return
+    }
+
+    setIsResettingPassword(true)
+    try {
+      await api.employees.resetPassword(resetPasswordEmployee.id, newPassword)
+      toast.success(`Password reset successfully for ${resetPasswordEmployee.name}`)
+      setResetPasswordDialogOpen(false)
+      setResetPasswordEmployee(null)
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (error: any) {
+      console.error("Failed to reset password:", error)
+      toast.error(error.message || "Failed to reset password")
+    } finally {
+      setIsResettingPassword(false)
     }
   }
 
@@ -304,8 +355,8 @@ export default function AdminUsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>Department <span className="text-red-500">*</span></Label>
-                <Select 
-                  value={formDepartmentId} 
+                <Select
+                  value={formDepartmentId}
                   onValueChange={(v) => {
                     setFormDepartmentId(v)
                     setFormSubDepartmentId("") // Reset sub-department when department changes
@@ -325,8 +376,8 @@ export default function AdminUsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>Sub-Department</Label>
-                <Select 
-                  value={formSubDepartmentId || "none"} 
+                <Select
+                  value={formSubDepartmentId || "none"}
                   onValueChange={(v) => setFormSubDepartmentId(v === "none" ? "" : v)}
                   disabled={!formDepartmentId}
                 >
@@ -357,19 +408,16 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
       {/* Users Table */}
       <Card>
@@ -402,7 +450,7 @@ export default function AdminUsersPage() {
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>
-                      <RoleBadge role={employee.role} />
+                     {employee.role}
                     </TableCell>
                     <TableCell>
                       {employee.department?.name || 'N/A'}
@@ -416,9 +464,17 @@ export default function AdminUsersPage() {
                           variant="ghost"
                           size="sm"
                           title="View user"
-                          onClick={() => openViewDialog(employee)}
+                          onClick={() => router.push(`/admin/departments/subdepartments/staff/${employee.id}`)}
                         >
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Reset password"
+                          onClick={() => openResetPasswordDialog(employee)}
+                        >
+                          <KeyRound className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -489,8 +545,8 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-2">
               <Label>Department</Label>
-              <Select 
-                value={editDepartmentId || "none"} 
+              <Select
+                value={editDepartmentId || "none"}
                 onValueChange={(v) => {
                   setEditDepartmentId(v === "none" ? "" : v)
                   setEditSubDepartmentId("") // Reset sub-department when department changes
@@ -511,8 +567,8 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-2">
               <Label>Sub-Department</Label>
-              <Select 
-                value={editSubDepartmentId || "none"} 
+              <Select
+                value={editSubDepartmentId || "none"}
                 onValueChange={(v) => setEditSubDepartmentId(v === "none" ? "" : v)}
                 disabled={!editDepartmentId}
               >
@@ -595,6 +651,51 @@ export default function AdminUsersPage() {
               if (viewingEmployee) openEditDialog(viewingEmployee)
             }}>
               <Pencil className="h-4 w-4 mr-2" /> Edit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Reset password for {resetPasswordEmployee?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password <span className="text-red-500">*</span></Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Enter new password (min 6 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password <span className="text-red-500">*</span></Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPasswordDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={isResettingPassword || !newPassword || !confirmPassword}
+            >
+              {isResettingPassword ? "Resetting..." : "Reset Password"}
             </Button>
           </DialogFooter>
         </DialogContent>

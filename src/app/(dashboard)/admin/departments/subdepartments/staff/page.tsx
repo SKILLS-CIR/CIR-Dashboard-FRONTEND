@@ -7,7 +7,7 @@ import { Department, SubDepartment, Employee } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
     Breadcrumb,
@@ -168,19 +168,16 @@ function StaffListContent() {
             </div>
 
             {/* Search */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Search staff by name or email..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Search */}
+            <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    placeholder="Search staff by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
 
             {/* Staff List */}
             <Card>
@@ -211,10 +208,14 @@ function StaffListContent() {
                                     <TableRow key={staff.id}>
                                         <TableCell>
                                             <div className="flex items-center gap-3">
-                                                <Avatar className="h-9 w-9">
-                                                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                                                        {getInitials(staff.name || 'U')}
-                                                    </AvatarFallback>
+                                                <Avatar className="h-10 w-10 ring-2 ring-primary/20 hover:ring-primary/40 transition-all border-2 border-background shadow-sm flex-shrink-0">
+                                                    {staff.avatarUrl ? (
+                                                        <AvatarImage src={staff.avatarUrl} alt={staff.name || ''} />
+                                                    ) : (
+                                                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold text-sm">
+                                                            {staff.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                                        </AvatarFallback>
+                                                    )}
                                                 </Avatar>
                                                 <span className="font-medium">{staff.name}</span>
                                             </div>

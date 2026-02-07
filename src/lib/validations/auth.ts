@@ -1,7 +1,6 @@
 // lib/validations/auth.ts
 
 import { z } from "zod"
-import { Role } from "@prisma/client"
 
 // Login schemas for different user types
 export const adminLoginSchema = z.object({

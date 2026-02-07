@@ -28,8 +28,8 @@ const statusBadgeVariants = cva(
 const statusIcons: Record<string, string> = {
     PENDING: "",
     SUBMITTED: "",
-    VERIFIED: "✓",
-    REJECTED: "✗",
+    VERIFIED: "✅",
+    REJECTED: "❌",
     IN_PROGRESS: "🔄",
     COMPLETED: "✓",
     OVERDUE: "⚠",

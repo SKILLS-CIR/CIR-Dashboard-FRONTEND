@@ -1,11 +1,12 @@
 "use client"
 
-import { 
-  Search, LogOut, Home, Users, FileText, User, Settings, BarChart, 
-  Building2, ClipboardList, Calendar, CheckSquare, FolderKanban 
+import {
+  Search, LogOut, Home, Users, FileText, User, Settings, BarChart,
+  Building2, ClipboardList, Calendar, CheckSquare, FolderKanban, FolderOpen
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 import { useAuth } from "@/components/providers/auth-context"
 import { Sun, Moon, Bell, Globe, ChevronDown } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,7 +20,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -36,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 
 interface SearchOption {
   label: string
@@ -117,6 +119,12 @@ const searchOptions: SearchOption[] = [
     label: "Assignments",
     href: "/manager/assignments",
     icon: <FolderKanban className="h-4 w-4" />,
+    roles: ["MANAGER"]
+  },
+  {
+    label: "Groups",
+    href: "/manager/responsibility-groups",
+    icon: <FolderOpen className="h-4 w-4" />,
     roles: ["MANAGER"]
   },
   {
@@ -209,11 +217,8 @@ export default function DashboardHeader() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch("/api/profile")
-        if (response.ok) {
-          const data = await response.json()
-          setProfile(data)
-        }
+        const data = await api.profile.get()
+        setProfile(data)
       } catch (error) {
         console.error("Failed to fetch profile:", error)
       }
@@ -266,10 +271,10 @@ export default function DashboardHeader() {
   const userInitial = user?.name?.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase() || "U"
 
   // Filter search options based on user role
-  const filteredOptions = searchOptions.filter(option => 
+  const filteredOptions = searchOptions.filter(option =>
     option.roles.includes(userRole as string)
   )
-  
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -281,7 +286,7 @@ export default function DashboardHeader() {
 
   const getAvatarUrl = () => {
     if (!profile) return null
-    
+
     switch (userRole as string) {
       case "ADMIN":
         return profile.admin?.avatarUrl || profile.avatarUrl
@@ -296,7 +301,7 @@ export default function DashboardHeader() {
 
   const getUserName = () => {
     if (!profile) return userEmail
-    
+
     switch (userRole as string) {
       case "ADMIN":
         return profile.admin?.name || profile.name || userEmail
@@ -371,8 +376,8 @@ export default function DashboardHeader() {
     if (notification.actionUrl) {
       router.push(notification.actionUrl)
     } else {
-      const notificationPath = userRole === "ADMIN" 
-        ? "/admin/notifications/manage" 
+      const notificationPath = userRole === "ADMIN"
+        ? "/admin/notifications/manage"
         : "/participant/notification"
       router.push(notificationPath)
     }
@@ -380,52 +385,54 @@ export default function DashboardHeader() {
 
   const handleViewAllNotifications = () => {
     setNotificationOpen(false)
-    const notificationPath = userRole === "ADMIN" 
-      ? "/admin/notifications/manage" 
+    const notificationPath = userRole === "ADMIN"
+      ? "/admin/notifications/manage"
       : "/participant/notification"
     router.push(notificationPath)
   }
 
   return (
     <>
-      <header className="w-full border-b bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-4">
-          
-          {/* LEFT: Logo + Name + Search Bar */}
-          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-            {/* Logo + Brand Name */}
-            <div 
-              className="flex items-center gap-2 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+      <header className="w-full bg-background lg:border-b">
+        <div className="max-w-7xl xl:max-w-none xl:mx-0 xl:ml-4 mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 lg:py-4 flex items-center justify-between gap-2 sm:gap-4">
+
+          {/* LEFT: Logo + Name */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+            {/* Logo + Brand Name - hidden on mobile since it's in sidebar */}
+            <div
+              className="flex items-center gap-2 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity hidden lg:flex"
               onClick={() => router.push(`/${userRole.toLowerCase()}`)}
             >
-              {/* <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm">
-                <span className="text-primary-foreground font-bold text-lg sm:text-xl">CIR</span>
-              </div> */}
-              <span className="text-lg sm:text-xl font-bold hidden sm:block">
-                Work Manager
+              <span className="text-lg sm:text-xl font-bold">
+                <Image src="/logo.png" alt="CIR Logo" width={100} height={100} />
+              </span>
+              <span className="text-lg sm:text-xl font-bold">
+                CIR DASHBOARD
               </span>
             </div>
-
-            {/* Search Bar */}
-             <div 
-            className="relative w-72 cursor-pointer hidden sm:block"
-            onClick={() => setOpen(true)}
-          >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search... ⌘K"
-              className="pl-10 rounded-full bg-muted/40 cursor-pointer"
-              readOnly
-            />
           </div>
+
+          {/* CENTER: Search Bar - hidden on mobile, shown on larger screens */}
+          <div className="flex-1 flex justify-center">
+            <div
+              className="relative w-72 cursor-pointer hidden md:block"
+              onClick={() => setOpen(true)}
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search... ⌘K"
+                className="pl-10 rounded-full bg-muted/40 cursor-pointer"
+                readOnly
+              />
+            </div>
           </div>
 
           {/* RIGHT: Actions */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-4">
+
             {/* Mobile Search Icon */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               className="md:hidden"
               onClick={() => setOpen(true)}
@@ -439,8 +446,8 @@ export default function DashboardHeader() {
             </Button>
 
             {/* Theme button */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={() => document.documentElement.classList.toggle("dark")}
             >
@@ -454,8 +461,8 @@ export default function DashboardHeader() {
                 <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
-                    <Badge 
-                      variant="destructive" 
+                    <Badge
+                      variant="destructive"
                       className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
                     >
                       {unreadCount > 9 ? "9+" : unreadCount}
@@ -500,8 +507,8 @@ export default function DashboardHeader() {
                                 )}>
                                   {notification.title}
                                 </p>
-                                <Badge 
-                                  variant="outline" 
+                                <Badge
+                                  variant="outline"
                                   className={cn("text-xs flex-shrink-0", getTypeColor(notification.type))}
                                 >
                                   {notification.type}
@@ -554,7 +561,7 @@ export default function DashboardHeader() {
                   <ChevronDown className="h-4 w-4 text-muted-foreground hidden lg:block" />
                 </div>
               </DropdownMenuTrigger>
-              
+
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
@@ -566,14 +573,14 @@ export default function DashboardHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => router.push(`/${userRole.toLowerCase()}/profile`)}
                   className="cursor-pointer"
                 >
                   <User className="mr-2 h-4 w-4" />
                   View Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => router.push(`/${userRole.toLowerCase()}`)}
                   className="cursor-pointer"
                 >
@@ -581,7 +588,7 @@ export default function DashboardHeader() {
                   Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive focus:text-destructive cursor-pointer"
                   onClick={() => logout()}
                 >

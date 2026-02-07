@@ -22,6 +22,8 @@ import {
   CalendarCheck,
   Save,
   CalendarRange,
+  FolderOpen,
+  Calendar1,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
@@ -32,6 +34,7 @@ import { cn } from "@/lib/utils"
 import { useAuth, getDashboardUrl } from "@/components/providers/auth-context"
 import { RoleBadge } from "@/components/ui/status-badge"
 import { Role } from "@/types/cir"
+import DashboardHeader from "@/components/dashboard-header"
 
 interface NavigationItem {
   name: string
@@ -50,41 +53,41 @@ const navigation: NavigationItem[] = [
     roles: ["ADMIN"]
   },
   {
-    name: "Users",
+    name: "Manage Users",
     href: "/admin/users",
     icon: <Users className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
   {
-    name: "Departments",
+    name: "Manage Departments",
     href: "/admin/departments",
     icon: <Building2 className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
   {
-    name: "Responsibilities",
+    name: "ManageResponsibilities",
     href: "/admin/responsibilities",
     icon: <Briefcase className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
   {
-    name: "Work Submissions",
+    name: "Manage Work Submissions",
     href: "/admin/work-submissions",
     icon: <FileCheck className="w-5 h-5" />,
     roles: ["ADMIN"]
   },
-  {
-    name: "Analytics",
-    href: "/admin/analytics",
-    icon: <BarChart3 className="w-5 h-5" />,
-    roles: ["ADMIN"]
-  },
-  {
-    name: "Profile",
-    href: "/admin/profile",
-    icon: <User className="w-5 h-5" />,
-    roles: ["ADMIN"]
-  },
+  // {
+  //   name: "Analytics",
+  //   href: "/admin/analytics",
+  //   icon: <BarChart3 className="w-5 h-5" />,
+  //   roles: ["ADMIN"]
+  // },
+  // {
+  //   name: "Profile",
+  //   href: "/admin/profile",
+  //   icon: <User className="w-5 h-5" />,
+  //   roles: ["ADMIN"]
+  // },
 
   // Manager Navigation
   {
@@ -93,36 +96,42 @@ const navigation: NavigationItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
+  // {
+  //   name: "Review Submissions",
+  //   href: "/manager/submissions",
+  //   icon: <FileCheck className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
+  // {
+  //   name: "Calender",
+  //   href: "/manager/responsibilities",
+  //   icon: <Calendar1 className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
   {
-    name: "Review Submissions",
-    href: "/manager/submissions",
-    icon: <FileCheck className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
-  {
-    name: "Responsibilities",
-    href: "/manager/responsibilities",
-    icon: <Briefcase className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
-  {
-    name: "Assignments",
+    name: "Manage Duty",
     href: "/manager/assignments",
     icon: <ClipboardList className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
+  // {
+  //   name: " Manage Group Responsibilities",
+  //   href: "/manager/responsibility-groups",
+  //   icon: <FolderOpen className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
   {
-    name: "My Staff",
+    name: "Staff",
     href: "/manager/staff",
     icon: <UserCheck className="w-5 h-5" />,
     roles: ["MANAGER"]
   },
-  {
-    name: "Profile",
-    href: "/manager/profile",
-    icon: <User className="w-5 h-5" />,
-    roles: ["MANAGER"]
-  },
+  // {
+  //   name: "Profile",
+  //   href: "/manager/profile",
+  //   icon: <User className="w-5 h-5" />,
+  //   roles: ["MANAGER"]
+  // },
 
   // Staff Navigation
   {
@@ -131,12 +140,12 @@ const navigation: NavigationItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     roles: ["STAFF"]
   },
-  {
-    name: "Submit Work",
-    href: "/staff/work-calendar",
-    icon: <Save className="w-5 h-5" />,
-    roles: ["STAFF"]
-  },
+  // {
+  //   name: "Submit Work",
+  //   href: "/staff/work-calendar",
+  //   icon: <Save className="w-5 h-5" />,
+  //   roles: ["STAFF"]
+  // },
   {
     name: "Work Calendar",
     href: "/staff/responsibilities",
@@ -149,18 +158,18 @@ const navigation: NavigationItem[] = [
     icon: <FileCheck className="w-5 h-5" />,
     roles: ["STAFF"]
   },
-  {
-    name: "Analytics",
-    href: "/staff/analytics",
-    icon: <BarChart3 className="w-5 h-5" />,
-    roles: ["STAFF"]
-  },
-  {
-    name: "Profile",
-    href: "/staff/profile",
-    icon: <User className="w-5 h-5" />,
-    roles: ["STAFF"]
-  },
+  // {
+  //   name: "Analytics",
+  //   href: "/staff/analytics",
+  //   icon: <BarChart3 className="w-5 h-5" />,
+  //   roles: ["STAFF"]
+  // },
+  // {
+  //   name: "Profile",
+  //   href: "/staff/profile",
+  //   icon: <User className="w-5 h-5" />,
+  //   roles: ["STAFF"]
+  // },
 ]
 
 function NavItem({
@@ -240,6 +249,52 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated || !role) return null
+
+  // Role-based path access control
+  const rolePathMap: Record<Role, string> = {
+    'ADMIN': '/admin',
+    'MANAGER': '/manager',
+    'STAFF': '/staff',
+  }
+
+  const allowedPathPrefix = rolePathMap[role]
+  const isAuthorized = pathname.startsWith(allowedPathPrefix)
+
+  // Show 403 Forbidden if user is accessing unauthorized path
+  if (!isAuthorized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="h-24 w-24 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+            <svg
+              className="h-12 w-12 text-destructive"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold text-destructive mb-2">403</h1>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-6">
+            You don&apos;t have permission to access this page. Please navigate to your authorized dashboard.
+          </p>
+          <Button
+            onClick={() => router.push(getDashboardUrl(role))}
+            className="w-full sm:w-auto"
+          >
+            Go to My Dashboard
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item =>
@@ -382,35 +437,34 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <div className={cn(
-        "transition-all duration-300",
+        "transition-all duration-300 flex flex-col min-h-screen",
         isCollapsed ? "lg:pl-20" : "lg:pl-72"
       )}>
-        {/* Mobile Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b px-4 lg:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle menu</span>
-          </Button>
+        {/* Desktop Dashboard Header */}
+        <div className="hidden lg:block sticky top-0 z-30">
+          <DashboardHeader />
+        </div>
 
-          <div className="flex flex-1 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image
-                src="/logo.png"
-                alt="CIR Management"
-                width={100}
-                height={25}
-              />
+        {/* Mobile Header - Full DashboardHeader on mobile */}
+        <div className="lg:hidden sticky top-0 z-30">
+          <div className="flex items-center gap-2 bg-background border-b px-3 py-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+            <div className="flex-1">
+              <DashboardHeader />
             </div>
-            <RoleBadge role={role} />
           </div>
-        </header>
+        </div>
 
         {/* Page Content */}
-        <main className="min-h-[calc(100vh-4rem)] lg:min-h-screen">
+        <main className="flex-1">
           {children}
         </main>
       </div>

@@ -21,7 +21,6 @@ export default function StaffAssignmentsPage() {
 
         return () => clearTimeout(timeout)
     }, [router])
-
     return (
         <div className="p-6 space-y-6">
             <div>

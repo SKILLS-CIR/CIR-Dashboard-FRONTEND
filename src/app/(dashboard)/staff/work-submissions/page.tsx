@@ -3,26 +3,31 @@
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { WorkSubmission, DayStatus } from "@/types/cir"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SubmissionStatusBadge, DayStatusBadge } from "@/components/ui/status-badge"
 import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
 import { 
     FileCheck, 
     Clock, 
     CheckCircle, 
     XCircle, 
     AlertTriangle, 
-    Calendar,
     ArrowLeft,
     ChevronRight,
-    ChevronLeft
+    CalendarIcon,
+    X
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { getDayStatus } from "@/lib/responsibility-status"
-
-const ITEMS_PER_PAGE = 10
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface DayGroup {
     date: string
@@ -33,20 +38,21 @@ interface DayGroup {
     submissions: WorkSubmission[]
 }
 
+const ITEMS_PER_PAGE = 10
+
 export default function StaffWorkSubmissionsPage() {
     const router = useRouter()
-    const [submissions, setSubmissions] = useState<WorkSubmission[]>([])
+    const [allSubmissions, setAllSubmissions] = useState<WorkSubmission[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
-    
-    // Pagination state
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
     const [currentPage, setCurrentPage] = useState(1)
-
+ 
     useEffect(() => {
         async function fetchSubmissions() {
             try {
                 const data = await api.workSubmissions.getAll()
-                setSubmissions(data)
+                setAllSubmissions(data)
             } catch (error) {
                 console.error("Failed to fetch submissions:", error)
             } finally {
@@ -57,14 +63,27 @@ export default function StaffWorkSubmissionsPage() {
         fetchSubmissions()
     }, [])
 
+    // Filter submissions based on selected date
+    const filteredSubmissions = useMemo(() => {
+        if (!selectedDate) {
+            return allSubmissions
+        }
+        
+        const dateStr = format(selectedDate, 'yyyy-MM-dd')
+        return allSubmissions.filter(s => {
+            const submissionDate = new Date((s as any).workDate || s.submittedAt)
+            return format(submissionDate, 'yyyy-MM-dd') === dateStr
+        })
+    }, [allSubmissions, selectedDate])
+
     // Group submissions by date
     const groupedByDay = useMemo((): DayGroup[] => {
         const dayMap = new Map<string, DayGroup>()
-
-        submissions.forEach(submission => {
+        
+        filteredSubmissions.forEach(submission => {
             const workDate = (submission as any).workDate || submission.submittedAt
             const dateStr = format(new Date(workDate), 'yyyy-MM-dd')
-
+            
             if (!dayMap.has(dateStr)) {
                 dayMap.set(dateStr, {
                     date: dateStr,
@@ -80,34 +99,42 @@ export default function StaffWorkSubmissionsPage() {
                     submissions: []
                 })
             }
-
+            
             const day = dayMap.get(dateStr)!
             day.submissions.push(submission)
             day.totalHours += (submission as any).hoursWorked || 0
-
+            
+            // Use the submission's own status for THIS date
             const status = submission.status || submission.assignment?.status
             if (status === 'VERIFIED') {
                 day.verifiedHours += (submission as any).hoursWorked || 0
             }
         })
-
+        
         // Calculate day status using shared utility
         dayMap.forEach((day) => {
             day.status = getDayStatus(day.submissions)
         })
-
+        
         // Sort by date descending
-        return Array.from(dayMap.values()).sort((a, b) =>
+        return Array.from(dayMap.values()).sort((a, b) => 
             new Date(b.date).getTime() - new Date(a.date).getTime()
         )
-    }, [submissions])
+    }, [filteredSubmissions])
 
-    // Pagination
-    const totalPages = Math.ceil(groupedByDay.length / ITEMS_PER_PAGE)
+    // Paginate grouped days
     const paginatedDays = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE
-        return groupedByDay.slice(start, start + ITEMS_PER_PAGE)
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+        const endIndex = startIndex + ITEMS_PER_PAGE
+        return groupedByDay.slice(startIndex, endIndex)
     }, [groupedByDay, currentPage])
+
+    const totalPages = Math.ceil(groupedByDay.length / ITEMS_PER_PAGE)
+
+    // Reset to page 1 when filter changes
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [selectedDate])
 
     const toggleDayExpanded = (date: string) => {
         setExpandedDays(prev => {
@@ -121,13 +148,18 @@ export default function StaffWorkSubmissionsPage() {
         })
     }
 
-    // Stats
-    const stats = useMemo(() => {
-        const pending = submissions.filter(s => (s.status || s.assignment?.status) === 'PENDING')
-        const submitted = submissions.filter(s => (s.status || s.assignment?.status) === 'SUBMITTED')
-        const verified = submissions.filter(s => (s.status || s.assignment?.status) === 'VERIFIED')
-        const rejected = submissions.filter(s => (s.status || s.assignment?.status) === 'REJECTED')
+    const clearDateFilter = () => {
+        setSelectedDate(undefined)
+    }
 
+    // Stats - Use submission status directly (date-specific)
+    const stats = useMemo(() => {
+        // Count based on submission's own status
+        const pending = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'PENDING')
+        const submitted = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'SUBMITTED')
+        const verified = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'VERIFIED')
+        const rejected = filteredSubmissions.filter(s => (s.status || s.assignment?.status) === 'REJECTED')
+        
         return {
             pending: pending.length,
             submitted: submitted.length,
@@ -136,7 +168,7 @@ export default function StaffWorkSubmissionsPage() {
             totalDays: groupedByDay.length,
             verifiedDays: groupedByDay.filter(d => d.status === 'VERIFIED').length,
         }
-    }, [submissions, groupedByDay])
+    }, [filteredSubmissions, groupedByDay])
 
     if (isLoading) {
         return (
@@ -148,96 +180,114 @@ export default function StaffWorkSubmissionsPage() {
 
     return (
         <div className="p-6 space-y-6">
-            <DashboardHeader />
-
+            {/* <DashboardHeader/> */}
+            
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4 mr-2" /> Back
+                <Button variant="ghost" size="icon" onClick={() => router.push('/staff')}>
+                    <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Work Submissions</h1>
-                    <p className="text-muted-foreground">View your submitted work by date</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Work History</h1>
+                    <p className="text-muted-foreground">
+                        View all your daily work submissions
+                    </p>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                                <Clock className="h-5 w-5 text-amber-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.pending}</p>
-                                <p className="text-sm text-muted-foreground">Pending</p>
-                            </div>
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                        <p className="text-sm font-medium">Filter by date:</p>
+                        
+                        {/* Date Picker */}
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-[240px] justify-start text-left font-normal",
+                                            !selectedDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={setSelectedDate}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            
+                            {selectedDate && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={clearDateFilter}
+                                    className="h-9 w-9"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                                <FileCheck className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.submitted}</p>
-                                <p className="text-sm text-muted-foreground">Submitted</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                                <CheckCircle className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.verified}</p>
-                                <p className="text-sm text-muted-foreground">Verified</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                                <XCircle className="h-5 w-5 text-red-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.rejected}</p>
-                                <p className="text-sm text-muted-foreground">Rejected</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
 
-            {/* Submissions by Day */}
+                        {selectedDate && (
+                            <p className="text-sm text-muted-foreground">
+                                Showing submissions for {format(selectedDate, "PPP")}
+                            </p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Rejected Alert */}
+            {stats.rejected > 0 && (
+                <Card className=" ">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            {/* <AlertTriangle className="h-5 w-5" /> */}
+                            {stats.rejected} Rejected Submission{stats.rejected > 1 ? 's' : ''} Need Attention
+                        </CardTitle>
+                        <CardDescription className="">
+                            Please review rejected items and contact your manager for queries.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
+            )}
+
+            {/* Daily Groups */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        Submissions by Date
-                    </CardTitle>
+                    <CardTitle>Submission History by Day</CardTitle>
                     <CardDescription>
-                        Showing {paginatedDays.length} of {groupedByDay.length} days
+                        {groupedByDay.length} day{groupedByDay.length !== 1 ? 's' : ''} with work submissions
+                        {selectedDate && ` (filtered)`}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {groupedByDay.length === 0 ? (
                         <div className="text-center py-12">
-                            <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <h3 className="text-lg font-medium mb-2">No submissions yet</h3>
-                            <p className="text-muted-foreground mb-4">
-                                You haven't submitted any work yet.
+                            <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <p className="text-muted-foreground">
+                                {selectedDate 
+                                    ? `No submissions found for ${format(selectedDate, "PPP")}`
+                                    : "No submissions yet. Go to your dashboard to submit today's work."
+                                }
                             </p>
-                            <Button onClick={() => router.push('/staff/work-calendar')}>
-                                Go to Work Calendar
-                            </Button>
+                            {selectedDate ? (
+                                <Button className="mt-4" onClick={clearDateFilter}>
+                                    Clear Filter
+                                </Button>
+                            ) : (
+                                <Button className="mt-4" onClick={() => router.push('/staff')}>
+                                    Go to Dashboard
+                                </Button>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -249,13 +299,13 @@ export default function StaffWorkSubmissionsPage() {
                                             onClick={() => toggleDayExpanded(day.date)}
                                             className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                                         >
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-4">
                                                 <DayStatusBadge status={day.status} />
                                                 <div className="text-left">
                                                     <p className="font-medium">{day.displayDate}</p>
                                                     <p className="text-sm text-muted-foreground">
-                                                        {day.submissions.length} submission{day.submissions.length !== 1 ? 's' : ''} • total {day.totalHours}  hours  work staff submitted
-                                                        {day.verifiedHours > 0 && ` • Final: ${day.verifiedHours} hrs verified`}
+                                                        {day.submissions.length} submission{day.submissions.length !== 1 ? 's' : ''} • {day.totalHours} total hours
+                                                        {day.verifiedHours > 0 && ` • ${day.verifiedHours} verified`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -266,6 +316,8 @@ export default function StaffWorkSubmissionsPage() {
                                         {expandedDays.has(day.date) && (
                                             <div className="border-t bg-muted/30 p-4 space-y-3">
                                                 {day.submissions.map((submission) => {
+                                                    // Use submission.status FIRST (per-submission status from DB)
+                                                    // Only fall back to assignment.status for legacy data
                                                     const status = submission.status || submission.assignment?.status || 'SUBMITTED'
                                                     return (
                                                         <div
@@ -299,7 +351,17 @@ export default function StaffWorkSubmissionsPage() {
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            <SubmissionStatusBadge status={status as any} />
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="border border-black dark:border-white rounded-none"
+                                                                    onClick={() => router.push(`/staff/work-submissions/${submission.id}`)}
+                                                                >
+                                                                    VIEW SUBMISSION
+                                                                </Button>
+                                                                <SubmissionStatusBadge status={status as any} />
+                                                            </div>
                                                         </div>
                                                     )
                                                 })}
@@ -311,18 +373,17 @@ export default function StaffWorkSubmissionsPage() {
 
                             {/* Pagination */}
                             {totalPages > 1 && (
-                                <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                                <div className="flex items-center justify-between mt-6 pt-6 border-t">
                                     <p className="text-sm text-muted-foreground">
                                         Page {currentPage} of {totalPages}
                                     </p>
-                                    <div className="flex gap-2">
+                                    <div className="flex items-center gap-2">
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                             disabled={currentPage === 1}
                                         >
-                                            <ChevronLeft className="h-4 w-4 mr-1" />
                                             Previous
                                         </Button>
                                         <Button
@@ -332,7 +393,6 @@ export default function StaffWorkSubmissionsPage() {
                                             disabled={currentPage === totalPages}
                                         >
                                             Next
-                                            <ChevronRight className="h-4 w-4 ml-1" />
                                         </Button>
                                     </div>
                                 </div>
