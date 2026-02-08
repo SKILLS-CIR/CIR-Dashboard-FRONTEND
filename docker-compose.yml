@@ -3,7 +3,7 @@ version: "3.9"
 services:
   
   frontend:
-    image: ${IMAGE}
+    image: ${FRONTEND_IMAGE}
     container_name: CIR-frontend
     env_file:
       - .env
